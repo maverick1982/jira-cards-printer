@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
@@ -21,7 +21,7 @@ import java.util.ResourceBundle;
  */
 public class ServerView extends JPanel {
 
-    private final ResourceBundle resources   = ResourceBundle.getBundle("it.esteco.resources");
+    private final ResourceBundle resources   = ResourceBundle.getBundle("it.maverick.resources");
     private final ClassLoader    classLoader = ServerView.class.getClassLoader();
 
     private JiraServer jiraServer;

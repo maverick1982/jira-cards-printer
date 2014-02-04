@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import javax.swing.AbstractAction;
 import javax.swing.DefaultListModel;
@@ -24,7 +24,7 @@ import java.util.ResourceBundle;
  */
 public class ProjectsView extends JPanel {
 
-    private final ResourceBundle resources   = ResourceBundle.getBundle("it.esteco.resources");
+    private final ResourceBundle resources   = ResourceBundle.getBundle("it.maverick.resources");
     private final ClassLoader    classLoader = ProjectsView.class.getClassLoader();
 
     private final ProjectsLogic projectsLogic;

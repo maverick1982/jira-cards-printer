@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;

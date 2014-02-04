@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import java.awt.BasicStroke;
 import java.awt.Font;

@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import org.json.JSONException;
 import org.json.JSONObject;

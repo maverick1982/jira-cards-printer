@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -23,7 +23,7 @@ import java.util.ResourceBundle;
  */
 public class Main {
 
-    private static final ResourceBundle resources   = ResourceBundle.getBundle("it.esteco.resources");
+    private static final ResourceBundle resources   = ResourceBundle.getBundle("it.maverick.resources");
     private static final ClassLoader    classLoader = Main.class.getClassLoader();
 
     private static final String FRAME_TITLE = "Jira Cards Printer - v0.2 Alpha";

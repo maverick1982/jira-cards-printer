@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 /**
  * User: Pasquale

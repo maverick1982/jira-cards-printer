@@ -1,4 +1,4 @@
-package it.esteco;
+package it.maverick;
 
 import javax.imageio.ImageIO;
 import java.awt.Image;

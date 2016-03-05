@@ -1,5 +1,8 @@
-package it.maverick;
+package it.maverick.jira.utils;
 
+import it.maverick.jira.data.JiraCard;
+import it.maverick.jira.data.JiraProject;
+import it.maverick.jira.data.JiraSprint;
 import org.json.JSONException;
 import org.json.JSONObject;
 

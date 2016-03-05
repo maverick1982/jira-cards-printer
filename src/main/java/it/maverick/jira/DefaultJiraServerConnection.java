@@ -1,19 +1,15 @@
-package it.maverick;
+package it.maverick.jira;
 
+import it.maverick.jira.data.JiraCard;
+import it.maverick.jira.data.JiraProject;
+import it.maverick.jira.data.JiraSprint;
+import it.maverick.jira.utils.JsonToJiraParser;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.AuthCache;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.BasicAuthCache;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -21,49 +17,32 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * User: Pasquale
- * Date: 04/01/14
- * Time: 11.44
+ * Created by Pasquale on 29/02/2016.
  */
-public class JiraServer {
+public class DefaultJiraServerConnection implements JiraServerConnection {
 
-    private String host;
-    private int    port;
-    private String user;
-    private String password;
+    private static final Logger LOGGER = Logger.getLogger(DefaultJiraServerConnection.class.getName());
 
-    private static HttpHost            targetHost;
-    private static CloseableHttpClient httpClient;
-    private static HttpClientContext   localContext;
-    private        ServerView          serverView;
+    private final CloseableHttpClient httpClient;
+    private final HttpHost targetHost;
+    private final HttpClientContext localContext;
 
-    public JiraServer() {
-        this.port = 443;
-    }
-
-    public void createConnection() {
-        targetHost = new HttpHost(host, port, "https");
-        CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(new AuthScope(targetHost.getHostName(), targetHost.getPort()), new UsernamePasswordCredentials(user, password));
-        httpClient = HttpClients.custom().setDefaultCredentialsProvider(credsProvider).build();
-
-        AuthCache authCache = new BasicAuthCache();
-        BasicScheme basicAuth = new BasicScheme();
-        authCache.put(targetHost, basicAuth);
-        localContext = HttpClientContext.create();
-        localContext.setAuthCache(authCache);
-        serverView.onServerConnected();
+    public DefaultJiraServerConnection(CloseableHttpClient httpClient, HttpHost targetHost, HttpClientContext localContext) {
+        this.httpClient = httpClient;
+        this.targetHost = targetHost;
+        this.localContext = localContext;
     }
 
     private String doRequest(String request) {
         try {
             HttpGet getRequest = new HttpGet(request);
             getRequest.addHeader("accept", "application/json");
-//            long start = System.currentTimeMillis();
             HttpResponse response = httpClient.execute(targetHost, getRequest, localContext);
-//            System.out.println("-------> " + (System.currentTimeMillis() - start));
 
             if (response.getStatusLine().getStatusCode() != 200) {
                 throw new RuntimeException("Failed : HTTP error code : " + response.getStatusLine().getStatusCode());
@@ -78,15 +57,15 @@ public class JiraServer {
             }
             return resp;
         } catch (ClientProtocolException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
         return null;
     }
 
-    public ArrayList<JiraProject> getProjectsList() {
-        ArrayList<JiraProject> projectsList = new ArrayList<JiraProject>();
+    public List<JiraProject> getProjects() {
+        List<JiraProject> projectsList = new ArrayList<JiraProject>();
         try {
             JSONObject jsonProjectsList = new JSONObject(doRequest("/rest/greenhopper/1.0/rapidview"));
             for (int i = 0; i < jsonProjectsList.optJSONArray("views").length(); i++) {
@@ -94,13 +73,13 @@ public class JiraServer {
                 projectsList.add(jiraProject);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
         return projectsList;
     }
 
-    public ArrayList<JiraSprint> getSprints(int projectId) {
-        ArrayList<JiraSprint> sprintsList = new ArrayList<JiraSprint>();
+    public List<JiraSprint> getSprints(int projectId) {
+        List<JiraSprint> sprintsList = new ArrayList<JiraSprint>();
         try {
             JSONObject jsonSprintsList = new JSONObject(doRequest("/rest/greenhopper/1.0/sprintquery/" + projectId));
             for (int i = 0; i < jsonSprintsList.optJSONArray("sprints").length(); i++) {
@@ -108,13 +87,13 @@ public class JiraServer {
                 sprintsList.add(jiraSprint);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
         return sprintsList;
     }
 
-    public ArrayList<JiraCard> getCards(int projectId, int sprintId) {
-        ArrayList<JiraCard> cardsList = new ArrayList<JiraCard>();
+    public List<JiraCard> getCards(int projectId, int sprintId) {
+        List<JiraCard> cardsList = new ArrayList<JiraCard>();
         try {
             JSONObject jsonCardsList = new JSONObject(doRequest("/rest/greenhopper/1.0/rapid/charts/sprintreport?rapidViewId=" + projectId + "&sprintId=" + sprintId));
             JiraCard jiraCard;
@@ -127,33 +106,8 @@ public class JiraServer {
                 cardsList.add(jiraCard);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, e.getMessage(), e);
         }
         return cardsList;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
-    }
-
-    public void setUser(String user) {
-        this.user = user;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setServerView(ServerView serverView) {
-        this.serverView = serverView;
-    }
-
-    public void closeConnection() {
-        try {
-            httpClient.close();
-            serverView.onServerDisconnected();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 }

@@ -1,116 +1,159 @@
-package it.maverick;
+package it.maverick.jira.data;
 
-import java.awt.BasicStroke;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.Point;
+import it.maverick.jira.utils.CachedImages;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.font.FontRenderContext;
 import java.awt.font.LineBreakMeasurer;
 import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.print.PageFormat;
-import java.awt.print.Printable;
-import java.awt.print.PrinterException;
-import java.awt.print.PrinterJob;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
-import java.util.ArrayList;
 
 /**
  * User: Pasquale
- * Date: 04/01/14
- * Time: 12.25
+ * Date: 03/01/14
+ * Time: 23.15
  */
-public class ProjectsLogic implements Printable {
+public class JiraCard {
 
-    private ProjectsView        projectsView;
-    private JiraServer          jiraServer;
-    private ArrayList<JiraCard> cardsToPrint;
-    private CachedImages cachedImages = new CachedImages();
+    private final int id;
+    private final String key;
+    private final String summary;
+    private String typeName;
+    private String typeUrl;
+    private String priorityUrl;
+    private String priorityName;
+    private double storyPoints;
+    private String statusName;
+    private String statusUrl;
+    private Image typeImage;
 
-    public ProjectsLogic(JiraServer jiraServer) {
-        this.jiraServer = jiraServer;
+    public JiraCard(int id, String key, String summary) {
+        this.id = id;
+        this.key = key;
+        this.summary = summary;
     }
 
-    public ProjectsView getProjectsView() {
-        return projectsView;
+    public int getId() {
+        return id;
     }
 
-    public void setProjectsView(ProjectsView projectsView) {
-        this.projectsView = projectsView;
+    public String getKey() {
+        return key;
     }
 
-    public void onLoadProjects() {
-        projectsView.setProjects(jiraServer.getProjectsList());
-        projectsView.setSprints(new ArrayList<JiraSprint>());
-        projectsView.setCards(new ArrayList<JiraCard>());
+    public String getTypeName() {
+        return typeName;
     }
 
-    public void onProjectSelected(int projectId) {
-        projectsView.setSprints(jiraServer.getSprints(projectId));
-        projectsView.setCards(new ArrayList<JiraCard>());
+    public void setTypeName(String typeName) {
+        this.typeName = typeName;
     }
 
-    public void onSprintSelected(int projectId, int sprintId) {
-        projectsView.setCards(jiraServer.getCards(projectId, sprintId));
+    public String getSummary() {
+        return summary;
     }
 
-    public void onPrint(ArrayList<JiraCard> cardsToPrint) {
-        this.cardsToPrint = cardsToPrint;
+    public String getTypeUrl() {
+        return typeUrl;
+    }
 
-        PrinterJob job = PrinterJob.getPrinterJob();
-        job.setPrintable(this);
-        boolean ok = job.printDialog();
-        if (ok) {
+    public void setTypeUrl(String typeUrl) {
+        this.typeUrl = typeUrl;
+    }
+
+    public String getPriorityUrl() {
+        return priorityUrl;
+    }
+
+    public void setPriorityUrl(String priorityUrl) {
+        this.priorityUrl = priorityUrl;
+    }
+
+    public String getPriorityName() {
+        return priorityName;
+    }
+
+    public void setPriorityName(String priorityName) {
+        this.priorityName = priorityName;
+    }
+
+    public double getStoryPoints() {
+        return storyPoints;
+    }
+
+    public void setStoryPoints(double storyPoints) {
+        this.storyPoints = storyPoints;
+    }
+
+    public String getStatusName() {
+        return statusName;
+    }
+
+    public void setStatusName(String statusName) {
+        this.statusName = statusName;
+    }
+
+    public String getStatusUrl() {
+        return statusUrl;
+    }
+
+    public void setStatusUrl(String statusUrl) {
+        this.statusUrl = statusUrl;
+    }
+
+    public Image getTypeImage() {
+        if (typeImage == null) {
             try {
-                job.print();
-            } catch (PrinterException ex) {
-              /* The job did not successfully complete */
+                URL url = new URL(typeUrl);
+                typeImage = ImageIO.read(url);
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
+        return typeImage;
     }
 
     @Override
-    public int print(Graphics graphics, PageFormat pageFormat, int pageIndex) throws PrinterException {
-
-        if (pageIndex < cardsToPrint.size()) {
-            createCardPrint(graphics, pageFormat, pageIndex);
-            return PAGE_EXISTS;
-        } else {
-            return NO_SUCH_PAGE;
-        }
+    public String toString() {
+        return this.key + " - " + this.summary + "[id:" + this.id + "]";
     }
 
-    int  cornerSquareWidth  = 280;
-    int  cornerSquareHeight = 80;
-    int  cornerFontSize     = 40;
-    int  centerFontSize     = 70;
-    int  cornerImageSize    = 30;
-    int  cornerImageSpace   = 5;
-    Font centerFont         = new Font("Arial", Font.PLAIN, centerFontSize);
-    Font cornerFont         = new Font("Arial", Font.PLAIN, cornerFontSize);
 
-    private void createCardPrint(Graphics graphics, PageFormat pageFormat, int pageIndex) {
+    int cornerSquareWidth = 280;
+    int cornerSquareHeight = 80;
+    int cornerFontSize = 40;
+    int centerFontSize = 70;
+    int cornerImageSize = 30;
+    int cornerImageSpace = 5;
+    Font centerFont = new Font("Arial", Font.PLAIN, centerFontSize);
+    Font cornerFont = new Font("Arial", Font.PLAIN, cornerFontSize);
+    private static CachedImages cachedImages = new CachedImages();
+
+    public void createCardPrint(Graphics graphics, PageFormat pageFormat) {
         Point originPoint = new Point((int) pageFormat.getImageableX(), (int) pageFormat.getImageableY());
         Point marginPoint = new Point((int) pageFormat.getImageableWidth() + originPoint.x, (int) pageFormat.getImageableHeight() + originPoint.y);
 
-        JiraCard jiraCard = cardsToPrint.get(pageIndex);
-
-        drawTitle(graphics, jiraCard.getSummary(), 70, 200, (int) marginPoint.getX() - 140);
+        drawTitle(graphics, getSummary(), 70, 200, (int) marginPoint.getX() - 140);
         Graphics2D g2d = (Graphics2D) graphics;
         BasicStroke basicStroke = new BasicStroke(2);
         g2d.setStroke(basicStroke);
         g2d.drawRect(originPoint.x, originPoint.y, (int) pageFormat.getImageableWidth(), (int) pageFormat.getImageableHeight());
 
-        drawCorner(graphics, originPoint.x, originPoint.y, jiraCard.getKey());
-        Image typeImage = cachedImages.getCachedImage(jiraCard.getTypeUrl());
-        drawCorner(graphics, marginPoint.x - cornerSquareWidth, originPoint.y, jiraCard.getTypeName(), typeImage);
-        Image priorityImage = cachedImages.getCachedImage(jiraCard.getPriorityUrl());
-        drawCorner(graphics, originPoint.x, marginPoint.y - cornerSquareHeight, jiraCard.getPriorityName(), priorityImage);
-        drawCorner(graphics, marginPoint.x - cornerSquareWidth, marginPoint.y - cornerSquareHeight, "" + jiraCard.getStoryPoints());
+        drawCorner(graphics, originPoint.x, originPoint.y, getKey());
+        Image typeImage = cachedImages.getCachedImage(getTypeUrl());
+        drawCorner(graphics, marginPoint.x - cornerSquareWidth, originPoint.y, getTypeName(), typeImage);
+        Image priorityImage = cachedImages.getCachedImage(getPriorityUrl());
+        drawCorner(graphics, originPoint.x, marginPoint.y - cornerSquareHeight, getPriorityName(), priorityImage);
+        drawCorner(graphics, marginPoint.x - cornerSquareWidth, marginPoint.y - cornerSquareHeight, "" + getStoryPoints());
     }
 
     private void drawTitle(Graphics graphics, String text, int x, int y, int width) {
@@ -188,5 +231,4 @@ public class ProjectsLogic implements Printable {
     private void drawCorner(Graphics graphics, int x, int y, String text) {
         drawCorner(graphics, x, y, text, null);
     }
-
 }

@@ -1,4 +1,4 @@
-package it.maverick;
+package it.maverick.jira.data;
 
 /**
  * User: Pasquale
@@ -7,8 +7,8 @@ package it.maverick;
  */
 public class JiraProject {
 
-    private int    id;
-    private String name;
+    private final int id;
+    private final String name;
 
     public JiraProject(int id, String name) {
         this.id = id;

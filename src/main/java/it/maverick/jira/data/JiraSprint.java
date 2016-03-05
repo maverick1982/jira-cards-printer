@@ -1,4 +1,4 @@
-package it.maverick;
+package it.maverick.jira.data;
 
 /**
  * User: Pasquale

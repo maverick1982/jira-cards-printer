@@ -8,7 +8,6 @@ import java.awt.font.FontRenderContext;
 import java.awt.font.LineBreakMeasurer;
 import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
-import java.awt.print.PageFormat;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -22,17 +21,20 @@ import java.text.AttributedString;
  */
 public class JiraCard {
 
-    private final int id;
+    private static final int          CORNER_IMAGE_SPACE = 5;
+    private static final CachedImages CACHED_IMAGES      = new CachedImages();
+
+    private final int    id;
     private final String key;
     private final String summary;
-    private String typeName;
-    private String typeUrl;
-    private String priorityUrl;
-    private String priorityName;
-    private double storyPoints;
-    private String statusName;
-    private String statusUrl;
-    private Image typeImage;
+    private       String typeName;
+    private       String typeUrl;
+    private       String priorityUrl;
+    private       String priorityName;
+    private       double storyPoints;
+    private       String statusName;
+    private       String statusUrl;
+    private       Image  typeImage;
 
     public JiraCard(int id, String key, String summary) {
         this.id = id;
@@ -127,40 +129,13 @@ public class JiraCard {
         return this.key + " - " + this.summary + "[id:" + this.id + "]";
     }
 
-
-    int cornerSquareWidth = 280;
-    int cornerSquareHeight = 80;
-    int cornerFontSize = 40;
-    int centerFontSize = 70;
-    int cornerImageSize = 30;
-    int cornerImageSpace = 5;
-    Font centerFont = new Font("Arial", Font.PLAIN, centerFontSize);
-    Font cornerFont = new Font("Arial", Font.PLAIN, cornerFontSize);
-    private static CachedImages cachedImages = new CachedImages();
-
-    public void createCardPrint(Graphics graphics, PageFormat pageFormat) {
-        Point originPoint = new Point((int) pageFormat.getImageableX(), (int) pageFormat.getImageableY());
-        Point marginPoint = new Point((int) pageFormat.getImageableWidth() + originPoint.x, (int) pageFormat.getImageableHeight() + originPoint.y);
-
-        drawTitle(graphics, getSummary(), 70, 200, (int) marginPoint.getX() - 140);
-        Graphics2D g2d = (Graphics2D) graphics;
-        BasicStroke basicStroke = new BasicStroke(2);
-        g2d.setStroke(basicStroke);
-        g2d.drawRect(originPoint.x, originPoint.y, (int) pageFormat.getImageableWidth(), (int) pageFormat.getImageableHeight());
-
-        drawCorner(graphics, originPoint.x, originPoint.y, getKey());
-        Image typeImage = cachedImages.getCachedImage(getTypeUrl());
-        drawCorner(graphics, marginPoint.x - cornerSquareWidth, originPoint.y, getTypeName(), typeImage);
-        Image priorityImage = cachedImages.getCachedImage(getPriorityUrl());
-        drawCorner(graphics, originPoint.x, marginPoint.y - cornerSquareHeight, getPriorityName(), priorityImage);
-        drawCorner(graphics, marginPoint.x - cornerSquareWidth, marginPoint.y - cornerSquareHeight, "" + getStoryPoints());
-    }
-
-    private void drawTitle(Graphics graphics, String text, int x, int y, int width) {
+    private void drawTitle(Graphics graphics, String text, int x, int y, int width, int height) {
         LineBreakMeasurer lineMeasurer = null;
         int paragraphStart = 0;
         int paragraphEnd = 0;
         Graphics2D g2d = (Graphics2D) graphics;
+        int centerFontSize = (int) (height * 0.19);
+        Font centerFont = new Font("Arial", Font.PLAIN, centerFontSize);
         AttributedString attributedString = new AttributedString(text);
         attributedString.addAttribute(TextAttribute.FONT, centerFont);
         attributedString.addAttribute(TextAttribute.SIZE, centerFontSize);
@@ -208,27 +183,45 @@ public class JiraCard {
         }
     }
 
-    private void drawCorner(Graphics graphics, int x, int y, String text, Image image) {
+    private void drawCorner(Graphics graphics, int x, int y, int cornerWidth, int cornerHeight, String text, Image image) {
+        Font cornerFont = new Font("Arial", Font.PLAIN, (int) (cornerWidth * 0.12));
         graphics.setFont(cornerFont);
-        graphics.drawRect(x, y, cornerSquareWidth, cornerSquareHeight);
+        graphics.drawRect(x, y, cornerWidth, cornerHeight);
         FontMetrics metrics = graphics.getFontMetrics(cornerFont);
         int textHeight = metrics.getHeight();
         int textWidth = metrics.stringWidth(text);
         int textBaseline = (int) (((metrics.getStringBounds(text, graphics).getHeight() + 1) / 2) - ((metrics.getAscent() + metrics.getDescent()) / 2) + metrics.getAscent());
 
-        int yMargin = y + (cornerSquareHeight - textHeight) / 2 + textBaseline;
-        int xMargin = x + (cornerSquareWidth - textWidth) / 2;
+        int yMargin = y + (cornerHeight - textHeight) / 2 + textBaseline;
+        int xMargin = x + (cornerWidth - textWidth) / 2;
 
         if (image != null) {
-            xMargin += (cornerImageSize + cornerImageSpace) / 2;
-//            graphics.drawImage(image, xMargin - cornerImageSize - cornerImageSpace / 2, yMargin - cornerImageSize, cornerImageSize, cornerImageSize, null);
-            graphics.drawImage(image, xMargin - cornerImageSize - cornerImageSpace, y + (cornerSquareHeight - cornerImageSize) / 2, cornerImageSize, cornerImageSize, null);
+            int cornerImageSize = (int) (textHeight * 0.8);
+            xMargin += (cornerImageSize + CORNER_IMAGE_SPACE) / 2;
+            graphics.drawImage(image, xMargin - cornerImageSize - CORNER_IMAGE_SPACE, y + (cornerHeight - cornerImageSize) / 2, cornerImageSize, cornerImageSize, null);
 
         }
         graphics.drawString(text, xMargin, yMargin);
     }
 
-    private void drawCorner(Graphics graphics, int x, int y, String text) {
-        drawCorner(graphics, x, y, text, null);
+    private void drawCorner(Graphics graphics, int x, int y, int cornerWidth, int cornerHeight, String text) {
+        drawCorner(graphics, x, y, cornerWidth, cornerHeight, text, null);
+    }
+
+    public void createCardPrint(Graphics graphics, Point cardOrigin, int cardWidth, int cardHeight) {
+        drawTitle(graphics, getSummary(), cardOrigin.x + (int) (0.03 * cardWidth), cardOrigin.y + (int) (0.2 * cardHeight), (int) (0.94 * cardWidth), (int) (cardHeight * 0.6));
+        Graphics2D g2d = (Graphics2D) graphics;
+        BasicStroke basicStroke = new BasicStroke(2);
+        g2d.setStroke(basicStroke);
+        g2d.drawRect(cardOrigin.x, cardOrigin.y, cardWidth, cardHeight);
+
+        int cornerWidth = (int) (cardWidth * 0.38);
+        int cornerHeight = (int) (cardHeight * 0.11);
+        drawCorner(graphics, cardOrigin.x, cardOrigin.y, cornerWidth, cornerHeight, getKey());
+        Image typeImage = CACHED_IMAGES.getCachedImage(getTypeUrl());
+        drawCorner(graphics, cardOrigin.x + cardWidth - cornerWidth, cardOrigin.y, cornerWidth, cornerHeight, getTypeName(), typeImage);
+        Image priorityImage = CACHED_IMAGES.getCachedImage(getPriorityUrl());
+        drawCorner(graphics, cardOrigin.x, cardOrigin.y + cardHeight - cornerHeight, cornerWidth, cornerHeight, getPriorityName(), priorityImage);
+        drawCorner(graphics, cardOrigin.x + cardWidth - cornerWidth, cardOrigin.y + cardHeight - cornerHeight, cornerWidth, cornerHeight, String.valueOf(getStoryPoints()));
     }
 }

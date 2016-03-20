@@ -14,7 +14,7 @@ import java.util.HashMap;
  */
 public class CachedImages {
 
-    private HashMap<String, Image> imagesCache = new HashMap<String, Image>();
+    private final HashMap<String, Image> imagesCache = new HashMap<String, Image>();
 
     public Image getCachedImage(String stringURL) {
         Image image = imagesCache.get(stringURL);

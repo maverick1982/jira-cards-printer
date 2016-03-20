@@ -4,31 +4,47 @@ import it.maverick.jira.data.JiraCard;
 import it.maverick.jira.data.JiraProject;
 import it.maverick.jira.data.JiraSprint;
 import it.maverick.jira.data.JiraUser;
+import it.maverick.jira.exception.JiraConnectionException;
+import it.maverick.jira.print.CardsPerPage;
+import it.maverick.jira.print.Page;
+import it.maverick.jira.view.JiraCardPrinterNullView;
 import it.maverick.jira.view.JiraCardPrinterView;
 
 import javax.swing.*;
-import java.awt.*;
-import java.awt.print.PageFormat;
-import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.ResourceBundle;
 
 /**
  * Created by Pasquale on 29/02/2016.
  */
-public class JiraCardPrinter implements Printable {
+public class JiraCardPrinter {
+
+    private static final ResourceBundle RESOURCES = ResourceBundle.getBundle("it.maverick.jira.resources");
+
+    private static final String DISCONNECTED_LABEL         = RESOURCES.getString("status.disconnected.label");
+    private static final String CONNECTED_LABEL            = RESOURCES.getString("status.connected.label");
+    private static final String CONNECTING_LABEL           = RESOURCES.getString("status.connecting.label");
+    private static final String LOADING_LABEL              = RESOURCES.getString("status.loading.label");
+    private static final String ALL_CARDS_COUNT_LABEL      = RESOURCES.getString("status.all.cards.count.label");
+    private static final String SELECTED_CARDS_COUNT_LABEL = RESOURCES.getString("status.selected.cards.count.label");
+    private static final String PAGES_NEEDED_COUNT         = RESOURCES.getString("status.pages.needed.count.label");
 
     private JiraServerConnection jiraServerConnection;
-
-    private List<JiraCard> cardsToPrint;
-
-    private JiraCardPrinterView jiraCardPrinterView = new JiraCardPrinterNullView();
+    private JiraCardPrinterView jiraCardPrinterView  = new JiraCardPrinterNullView();
+    private CardsPerPage        selectedCardsPerPage = CardsPerPage.FOUR;
+    private JiraProject selectedJiraProject;
+    private JiraSprint  selectedJiraSprint;
+    private List<JiraCard> jiraCards         = new ArrayList<JiraCard>();
+    private List<JiraCard> selectedJiraCards = new ArrayList<JiraCard>();
 
     public void installView(JiraCardPrinterView jiraCardPrinterView) {
         this.jiraCardPrinterView = jiraCardPrinterView;
+        jiraCardPrinterView.setCardsPerPage(selectedCardsPerPage);
+        disconnect();
     }
 
     public void run() {
@@ -45,20 +61,35 @@ public class JiraCardPrinter implements Printable {
         Thread thread = new Thread() {
             @Override
             public void run() {
-                JiraUser jiraUser = new JiraUser(userName, password);
-                JiraServer jiraServer = new DefaultJiraServer(host);
-                jiraServerConnection = jiraServer.createConnection(jiraUser);
+                try {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            jiraCardPrinterView.setConnectionStatus(CONNECTING_LABEL);
+                        }
+                    });
 
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        jiraCardPrinterView.setProjects(jiraServerConnection.getProjects());
-                    }
-                });
+                    JiraUser jiraUser = new JiraUser(userName, password);
+                    JiraServer jiraServer = new DefaultJiraServer(host);
+                    jiraServerConnection = jiraServer.createConnection(jiraUser);
+
+                    final List<JiraProject> projects = jiraServerConnection.getProjects();
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            jiraCardPrinterView.setConnectionStatus(CONNECTED_LABEL);
+                            jiraCardPrinterView.setProjects(projects);
+                        }
+                    });
+                } catch (JiraConnectionException e) {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            jiraCardPrinterView.showErrorMessage("Connection error", "Connection error message");
+                            disconnect();
+                        }
+                    });
+                }
             }
         };
         thread.start();
-
-
     }
 
     public void disconnect() {
@@ -70,46 +101,127 @@ public class JiraCardPrinter implements Printable {
         jiraCardPrinterView.setConnectButtonEnabled(true);
         jiraCardPrinterView.setDisconnectButtonEnabled(false);
         jiraCardPrinterView.setProjects(new ArrayList<JiraProject>());
-        jiraCardPrinterView.setSprints(new ArrayList<JiraSprint>());
-        jiraCardPrinterView.setCards(new ArrayList<JiraCard>());
+        setSprintsOnView(new ArrayList<JiraSprint>());
+        jiraCardPrinterView.setConnectionStatus(DISCONNECTED_LABEL);
     }
 
-    public void onProjectSelected(final int id) {
-        Thread thread = new Thread() {
-            @Override
-            public void run() {
-                final List<JiraSprint> sprints = jiraServerConnection.getSprints(id);
-                Collections.reverse(sprints);
+    public void onProjectSelected(final JiraProject jiraProject) {
+        selectedJiraProject = jiraProject;
+        if (selectedJiraProject != null) {
+            Thread thread = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        final List<JiraSprint> sprints = jiraServerConnection.getSprints(selectedJiraProject.getId());
+                        Collections.reverse(sprints);
 
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        jiraCardPrinterView.setSprints(sprints);
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                setSprintsOnView(sprints);
+                            }
+                        });
+                    } catch (JiraConnectionException e) {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                jiraCardPrinterView.showErrorMessage("Connection error", "Connection error message");
+                            }
+                        });
                     }
-                });
-            }
-        };
-        thread.start();
+
+                }
+            };
+            thread.start();
+        } else {
+            setSprintsOnView(new ArrayList<JiraSprint>());
+        }
+
     }
 
-    public void onSprintSelected(final int projectId, final int sprintId) {
-        Thread thread = new Thread() {
-            @Override
-            public void run() {
-                final List<JiraCard> cards = jiraServerConnection.getCards(projectId, sprintId);
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        jiraCardPrinterView.setCards(cards);
+    private void setSprintsOnView(List<JiraSprint> sprints) {
+        jiraCardPrinterView.setSprints(sprints);
+        setCardsOnView(new ArrayList<JiraCard>());
+    }
+
+    public void onSprintSelected(final JiraSprint jiraSprint) {
+        selectedJiraSprint = jiraSprint;
+        if (selectedJiraProject != null && selectedJiraSprint != null) {
+            Thread thread = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                jiraCardPrinterView.setConnectionStatus(LOADING_LABEL);
+                            }
+                        });
+                        jiraCards = jiraServerConnection.getCards(selectedJiraProject.getId(), selectedJiraSprint.getId());
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                jiraCardPrinterView.setConnectionStatus(CONNECTED_LABEL);
+                                setCardsOnView(jiraCards);
+                            }
+                        });
+                    } catch (JiraConnectionException e) {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                jiraCardPrinterView.setConnectionStatus(CONNECTED_LABEL);
+                                jiraCardPrinterView.showErrorMessage("Connection error", "Connection error message");
+                            }
+                        });
                     }
-                });
-            }
-        };
-        thread.start();
+                }
+            };
+            thread.start();
+        } else {
+            jiraCards = new ArrayList<JiraCard>();
+            setCardsOnView(new ArrayList<JiraCard>());
+        }
+
     }
 
-    public void onPrint(List<JiraCard> cards) {
-        cardsToPrint = cards;
+    private void setCardsOnView(List<JiraCard> cards) {
+        jiraCardPrinterView.setCards(cards);
+        jiraCardPrinterView.setCardsStatus(String.format(ALL_CARDS_COUNT_LABEL, cards.size()));
+        updatePagesCountView();
+    }
+
+    private void updatePagesCountView() {
+        int allCardsPageCount = (int) Math.ceil((double) jiraCards.size() / selectedCardsPerPage.getCardsPerPageInt());
+        int selectedCardsPageCount = (int) Math.ceil((double) selectedJiraCards.size() / selectedCardsPerPage.getCardsPerPageInt());
+        jiraCardPrinterView.setPagesCount(String.format(PAGES_NEEDED_COUNT, allCardsPageCount));
+        if (selectedCardsPageCount > 0) {
+            jiraCardPrinterView.setPagesSelectedCount(String.format(PAGES_NEEDED_COUNT, selectedCardsPageCount));
+        } else {
+            jiraCardPrinterView.setPagesSelectedCount("");
+        }
+    }
+
+    public void onPrint() {
+        print(jiraCards);
+    }
+
+    public void onCardsPerPageSelected(CardsPerPage cardsPerPage) {
+        selectedCardsPerPage = cardsPerPage;
+        updatePagesCountView();
+    }
+
+    public void onCardsSelected(List<JiraCard> selectedCards) {
+        selectedJiraCards = selectedCards;
+        if (selectedJiraCards != null && !selectedJiraCards.isEmpty()) {
+            jiraCardPrinterView.setCardsSelectionStatus(String.format(SELECTED_CARDS_COUNT_LABEL, selectedCards.size()));
+        } else {
+            jiraCardPrinterView.setCardsSelectionStatus("");
+        }
+        updatePagesCountView();
+    }
+
+    public void onPrintSelected() {
+        print(selectedJiraCards);
+    }
+
+    private void print(List<JiraCard> jiraCardList) {
         PrinterJob job = PrinterJob.getPrinterJob();
-        job.setPrintable(this);
+        job.setPrintable(new Page(jiraCardList, selectedCardsPerPage));
         boolean ok = job.printDialog();
         if (ok) {
             try {
@@ -117,57 +229,6 @@ public class JiraCardPrinter implements Printable {
             } catch (PrinterException ex) {
               /* The job did not successfully complete */
             }
-        }
-    }
-
-    public int print(Graphics graphics, PageFormat pageFormat, int pageIndex) throws PrinterException {
-        if (pageIndex < cardsToPrint.size()) {
-            cardsToPrint.get(pageIndex).createCardPrint(graphics, pageFormat);
-            return PAGE_EXISTS;
-        } else {
-            return NO_SUCH_PAGE;
-        }
-    }
-
-    private class JiraCardPrinterNullView implements JiraCardPrinterView {
-        public void setVisible(boolean visible) {
-            // do nothing
-        }
-
-        public void setProjects(List<JiraProject> projects) {
-            // do nothing
-        }
-
-        public void setSprints(List<JiraSprint> sprints) {
-            // do nothing
-        }
-
-        public void setCards(List<JiraCard> cards) {
-            // do nothing
-        }
-
-        public void setHostEnabled(boolean enabled) {
-            // do nothing
-        }
-
-        public void setUserEnabled(boolean enabled) {
-            // do nothing
-        }
-
-        public void setPasswordEnabled(boolean enabled) {
-            // do nothing
-        }
-
-        public void setConnectButtonEnabled(boolean enabled) {
-            // do nothing
-        }
-
-        public void setDisconnectButtonEnabled(boolean enabled) {
-            // do nothing
-        }
-
-        public void loadingCards() {
-            // do nothing
         }
     }
 }

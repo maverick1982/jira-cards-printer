@@ -3,6 +3,7 @@ package it.maverick.jira;
 import it.maverick.jira.data.JiraCard;
 import it.maverick.jira.data.JiraProject;
 import it.maverick.jira.data.JiraSprint;
+import it.maverick.jira.exception.JiraConnectionException;
 import it.maverick.jira.utils.JsonToJiraParser;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -10,7 +11,6 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -29,8 +29,8 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
     private static final Logger LOGGER = Logger.getLogger(DefaultJiraServerConnection.class.getName());
 
     private final CloseableHttpClient httpClient;
-    private final HttpHost targetHost;
-    private final HttpClientContext localContext;
+    private final HttpHost            targetHost;
+    private final HttpClientContext   localContext;
 
     public DefaultJiraServerConnection(CloseableHttpClient httpClient, HttpHost targetHost, HttpClientContext localContext) {
         this.httpClient = httpClient;
@@ -64,7 +64,7 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
         return null;
     }
 
-    public List<JiraProject> getProjects() {
+    public List<JiraProject> getProjects() throws JiraConnectionException {
         List<JiraProject> projectsList = new ArrayList<JiraProject>();
         try {
             JSONObject jsonProjectsList = new JSONObject(doRequest("/rest/greenhopper/1.0/rapidview"));
@@ -72,13 +72,13 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
                 JiraProject jiraProject = JsonToJiraParser.parseProject(jsonProjectsList.optJSONArray("views").getJSONObject(i).toString());
                 projectsList.add(jiraProject);
             }
-        } catch (JSONException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+        } catch (Exception e) {
+            throw new JiraConnectionException(e);
         }
         return projectsList;
     }
 
-    public List<JiraSprint> getSprints(int projectId) {
+    public List<JiraSprint> getSprints(int projectId) throws JiraConnectionException {
         List<JiraSprint> sprintsList = new ArrayList<JiraSprint>();
         try {
             JSONObject jsonSprintsList = new JSONObject(doRequest("/rest/greenhopper/1.0/sprintquery/" + projectId));
@@ -86,13 +86,13 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
                 JiraSprint jiraSprint = JsonToJiraParser.parseSprint(jsonSprintsList.optJSONArray("sprints").getJSONObject(i).toString());
                 sprintsList.add(jiraSprint);
             }
-        } catch (JSONException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+        } catch (Exception e) {
+            throw new JiraConnectionException(e);
         }
         return sprintsList;
     }
 
-    public List<JiraCard> getCards(int projectId, int sprintId) {
+    public List<JiraCard> getCards(int projectId, int sprintId) throws JiraConnectionException {
         List<JiraCard> cardsList = new ArrayList<JiraCard>();
         try {
             JSONObject jsonCardsList = new JSONObject(doRequest("/rest/greenhopper/1.0/rapid/charts/sprintreport?rapidViewId=" + projectId + "&sprintId=" + sprintId));
@@ -105,8 +105,8 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
                 jiraCard = JsonToJiraParser.parseCard(jsonCardsList.getJSONObject("contents").getJSONArray("incompletedIssues").getJSONObject(i).toString());
                 cardsList.add(jiraCard);
             }
-        } catch (JSONException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage(), e);
+        } catch (Exception e) {
+            throw new JiraConnectionException(e);
         }
         return cardsList;
     }

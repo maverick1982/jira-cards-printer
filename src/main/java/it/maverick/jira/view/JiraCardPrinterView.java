@@ -3,6 +3,7 @@ package it.maverick.jira.view;
 import it.maverick.jira.data.JiraCard;
 import it.maverick.jira.data.JiraProject;
 import it.maverick.jira.data.JiraSprint;
+import it.maverick.jira.print.CardsPerPage;
 
 import java.util.List;
 
@@ -28,4 +29,18 @@ public interface JiraCardPrinterView {
     void setConnectButtonEnabled(boolean enabled);
 
     void setDisconnectButtonEnabled(boolean enabled);
+
+    void showErrorMessage(String title, String message);
+
+    void setCardsPerPage(CardsPerPage selectedCardsPerPage);
+
+    void setConnectionStatus(String connectionStatus);
+
+    void setCardsStatus(String cardsStatus);
+
+    void setCardsSelectionStatus(String cardsSelectionStatus);
+
+    void setPagesCount(String pagesCountStatus);
+
+    void setPagesSelectedCount(String pagesCountSelectedStatus);
 }

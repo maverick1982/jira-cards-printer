@@ -4,6 +4,7 @@ import it.maverick.jira.JiraCardPrinter;
 import it.maverick.jira.data.JiraCard;
 import it.maverick.jira.data.JiraProject;
 import it.maverick.jira.data.JiraSprint;
+import it.maverick.jira.print.CardsPerPage;
 
 import javax.swing.*;
 import javax.swing.plaf.nimbus.NimbusLookAndFeel;
@@ -20,13 +21,14 @@ public class JiraCardPrinterSwingView extends JFrame implements JiraCardPrinterV
 
     private static final Logger LOGGER = Logger.getLogger(JiraCardPrinterSwingView.class.getName());
 
-    private static final ResourceBundle RESOURCES = ResourceBundle.getBundle("it.maverick.jira.resources");
-    private static final ClassLoader CLASS_LOADER = JiraCardPrinterSwingView.class.getClassLoader();
+    private static final ResourceBundle RESOURCES    = ResourceBundle.getBundle("it.maverick.jira.resources");
+    private static final ClassLoader    CLASS_LOADER = JiraCardPrinterSwingView.class.getClassLoader();
 
     private static final String FRAME_TITLE = RESOURCES.getString("application.title");
 
-    private final ProjectsSwingView projectsView;
-    private final ServerSwingView serverSwingView;
+    private final ProjectsSwingView  projectsView;
+    private final ServerSwingView    serverSwingView;
+    private final StatusBarSwingView statusBarView;
 
     public JiraCardPrinterSwingView(JiraCardPrinter jiraCardPrinter) {
         try {
@@ -61,15 +63,17 @@ public class JiraCardPrinterSwingView extends JFrame implements JiraCardPrinterV
 
         projectsView = new ProjectsSwingView(jiraCardPrinter);
         serverSwingView = new ServerSwingView(jiraCardPrinter);
+        statusBarView = new StatusBarSwingView();
 
         setSize(1024, 768);
         setTitle(FRAME_TITLE);
         final ImageIcon APPLICATION_ICON = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("application.icon")));
         setIconImage(APPLICATION_ICON.getImage());
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         setLayout(new BorderLayout());
         add(serverSwingView, BorderLayout.PAGE_START);
+        add(statusBarView, BorderLayout.AFTER_LAST_LINE);
         add(projectsView);
     }
 
@@ -103,5 +107,33 @@ public class JiraCardPrinterSwingView extends JFrame implements JiraCardPrinterV
 
     public void setDisconnectButtonEnabled(boolean enabled) {
         serverSwingView.setDisconnectButtonEnabled(enabled);
+    }
+
+    public void showErrorMessage(String title, String message) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
+    }
+
+    public void setCardsPerPage(CardsPerPage selectedCardsPerPage) {
+        projectsView.selectCardsPerPage(selectedCardsPerPage);
+    }
+
+    public void setConnectionStatus(String connectionStatus) {
+        statusBarView.setConnectionStatus(connectionStatus);
+    }
+
+    public void setCardsStatus(String cardsStatus) {
+        statusBarView.setCardsStatus(cardsStatus);
+    }
+
+    public void setCardsSelectionStatus(String cardsSelectionStatus) {
+        statusBarView.setCardsSelectionStatus(cardsSelectionStatus);
+    }
+
+    public void setPagesCount(String pagesCountStatus) {
+        statusBarView.setPagesCountStatus(pagesCountStatus);
+    }
+
+    public void setPagesSelectedCount(String pagesCountSelectedStatus) {
+        statusBarView.setPagesCountSelectedStatus(pagesCountSelectedStatus);
     }
 }

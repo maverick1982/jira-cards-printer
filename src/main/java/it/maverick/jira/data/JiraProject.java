@@ -7,7 +7,7 @@ package it.maverick.jira.data;
  */
 public class JiraProject {
 
-    private final int id;
+    private final int    id;
     private final String name;
 
     public JiraProject(int id, String name) {

@@ -5,8 +5,8 @@ package it.maverick.jira.data;
  */
 public class JiraUser {
 
-    private String name;
-    private String password;
+    private final String name;
+    private final String password;
 
     public JiraUser(String name, String password) {
         this.name = name;

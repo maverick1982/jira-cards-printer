@@ -1,5 +1,4 @@
 # IntelliJ files  #
 ###################
 **\.idea
-*.iml
 target

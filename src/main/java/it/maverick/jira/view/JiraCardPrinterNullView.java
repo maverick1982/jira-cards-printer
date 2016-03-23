@@ -75,4 +75,20 @@ public class JiraCardPrinterNullView implements JiraCardPrinterView {
     public void setPagesSelectedCount(String pagesCountSelectedStatus) {
         // do nothing
     }
+
+    public void setUsersForHint(List<String> users) {
+        // do nothing
+    }
+
+    public void setHostsForHint(List<String> hosts) {
+        // do nothing
+    }
+
+    public void setUser(String user) {
+        // do nothing
+    }
+
+    public void setHost(String host) {
+        // do nothing
+    }
 }

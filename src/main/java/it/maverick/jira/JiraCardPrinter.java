@@ -5,6 +5,9 @@ import it.maverick.jira.data.JiraProject;
 import it.maverick.jira.data.JiraSprint;
 import it.maverick.jira.data.JiraUser;
 import it.maverick.jira.exception.JiraConnectionException;
+import it.maverick.jira.preferences.PreferencesStorage;
+import it.maverick.jira.preferences.UserPreferences;
+import it.maverick.jira.preferences.XmlPreferencesStorage;
 import it.maverick.jira.print.CardsPerPage;
 import it.maverick.jira.print.Page;
 import it.maverick.jira.view.JiraCardPrinterNullView;
@@ -33,6 +36,9 @@ public class JiraCardPrinter {
     private static final String SELECTED_CARDS_COUNT_LABEL = RESOURCES.getString("status.selected.cards.count.label");
     private static final String PAGES_NEEDED_COUNT         = RESOURCES.getString("status.pages.needed.count.label");
 
+    private final PreferencesStorage preferencesStorage = new XmlPreferencesStorage();
+    private final UserPreferences    userPreferences    = new UserPreferences(preferencesStorage, 10);
+
     private JiraServerConnection jiraServerConnection;
     private JiraCardPrinterView jiraCardPrinterView  = new JiraCardPrinterNullView();
     private CardsPerPage        selectedCardsPerPage = CardsPerPage.FOUR;
@@ -43,6 +49,16 @@ public class JiraCardPrinter {
 
     public void installView(JiraCardPrinterView jiraCardPrinterView) {
         this.jiraCardPrinterView = jiraCardPrinterView;
+        List<String> users = userPreferences.getUsers();
+        List<String> hosts = userPreferences.getHosts();
+        jiraCardPrinterView.setUsersForHint(users);
+        jiraCardPrinterView.setHostsForHint(hosts);
+        if (!users.isEmpty()) {
+            jiraCardPrinterView.setUser(users.get(users.size() - 1));
+        }
+        if (!hosts.isEmpty()) {
+            jiraCardPrinterView.setHost(hosts.get(hosts.size() - 1));
+        }
         jiraCardPrinterView.setCardsPerPage(selectedCardsPerPage);
         disconnect();
     }
@@ -79,6 +95,9 @@ public class JiraCardPrinter {
                             jiraCardPrinterView.setProjects(projects);
                         }
                     });
+
+                    userPreferences.addUser(userName);
+                    userPreferences.addHost(host);
                 } catch (JiraConnectionException e) {
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {

@@ -136,4 +136,20 @@ public class JiraCardPrinterSwingView extends JFrame implements JiraCardPrinterV
     public void setPagesSelectedCount(String pagesCountSelectedStatus) {
         statusBarView.setPagesCountSelectedStatus(pagesCountSelectedStatus);
     }
+
+    public void setUsersForHint(List<String> users) {
+        serverSwingView.setUsersForHint(users);
+    }
+
+    public void setHostsForHint(List<String> hosts) {
+        serverSwingView.setHostsForHint(hosts);
+    }
+
+    public void setUser(String user) {
+        serverSwingView.setUser(user);
+    }
+
+    public void setHost(String host) {
+        serverSwingView.setHost(host);
+    }
 }

@@ -43,4 +43,12 @@ public interface JiraCardPrinterView {
     void setPagesCount(String pagesCountStatus);
 
     void setPagesSelectedCount(String pagesCountSelectedStatus);
+
+    void setUsersForHint(List<String> users);
+
+    void setHostsForHint(List<String> hosts);
+
+    void setUser(String user);
+
+    void setHost(String host);
 }

@@ -5,6 +5,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import java.awt.event.ActionEvent;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,8 +27,8 @@ public class Autocomplete implements DocumentListener {
 
     public Autocomplete(JTextField textField, List<String> keywords) {
         this.textField = textField;
-        this.keywords = keywords;
-        Collections.sort(keywords);
+        this.keywords = new ArrayList<String>(keywords);
+        Collections.sort(this.keywords);
     }
 
     public void changedUpdate(DocumentEvent ev) {

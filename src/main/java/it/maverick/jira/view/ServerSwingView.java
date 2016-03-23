@@ -5,7 +5,8 @@ import it.maverick.jira.JiraCardPrinter;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -24,38 +25,31 @@ public class ServerSwingView extends JPanel {
     private static final String    PASSWORD_LABEL   = RESOURCES.getString("password.label");
     private static final String    CONNECT_LABEL    = RESOURCES.getString("connect.label");
     private static final String    DISCONNECT_LABEL = RESOURCES.getString("disconnect.label");
-    private static final String    DEFAULT_HOST     = RESOURCES.getString("default.host.url");
     private static final ImageIcon CONNECT_ICON     = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("connect.server.icon")));
     private static final ImageIcon DISCONNECT_ICON  = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("disconnect.server.icon")));
 
     private final JLabel     hostLabel        = new JLabel(HOST_LABEL);
     private final JLabel     userLabel        = new JLabel(USER_LABEL);
     private final JLabel     passwordLabel    = new JLabel(PASSWORD_LABEL);
-    private final JTextField host             = new JTextField(DEFAULT_HOST);
+    private final JTextField host             = new JTextField();
     private final JTextField user             = new JTextField();
     private final JTextField password         = new JPasswordField();
     private final JButton    connectButton    = new JButton(CONNECT_LABEL);
     private final JButton    disconnectButton = new JButton(DISCONNECT_LABEL);
 
+    private final AbstractAction connectAction;
+
     public ServerSwingView(final JiraCardPrinter jiraCardPrinter) {
 
-        AbstractAction connectAction = new AbstractAction() {
+        connectAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 jiraCardPrinter.connect(host.getText(), user.getText(), password.getText());
             }
         };
 
-        host.setPreferredSize(new Dimension(200, host.getPreferredSize().height));
-
-        user.setPreferredSize(new Dimension(200, user.getPreferredSize().height));
-        user.addActionListener(connectAction);
-
-        List<String> users = new ArrayList<String>();
-        Autocomplete autocomplete = new Autocomplete(user, users);
-        user.getDocument().addDocumentListener(autocomplete);
-
-        password.setPreferredSize(new Dimension(200, password.getPreferredSize().height));
-        password.addActionListener(connectAction);
+        configureTextField(host);
+        configureTextField(user);
+        configureTextField(password);
 
         connectButton.setIcon(CONNECT_ICON);
         connectButton.addActionListener(connectAction);
@@ -68,6 +62,23 @@ public class ServerSwingView extends JPanel {
         });
 
         layoutComponent();
+    }
+
+    private void configureTextField(JTextField textField) {
+        textField.setPreferredSize(new Dimension(200, textField.getPreferredSize().height));
+        textField.addActionListener(connectAction);
+        setSelectionOnFocus(textField);
+    }
+
+    private void setSelectionOnFocus(final JTextField textField) {
+        textField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                super.focusGained(e);
+                textField.setSelectionStart(0);
+                textField.setSelectionEnd(textField.getText().length());
+            }
+        });
     }
 
     private void layoutComponent() {
@@ -100,5 +111,23 @@ public class ServerSwingView extends JPanel {
 
     public void setDisconnectButtonEnabled(boolean enabled) {
         disconnectButton.setEnabled(enabled);
+    }
+
+    public void setUsersForHint(List<String> users) {
+        Autocomplete autocomplete = new Autocomplete(user, users);
+        user.getDocument().addDocumentListener(autocomplete);
+    }
+
+    public void setHostsForHint(List<String> hosts) {
+        Autocomplete autocomplete = new Autocomplete(host, hosts);
+        host.getDocument().addDocumentListener(autocomplete);
+    }
+
+    public void setUser(String user) {
+        this.user.setText(user);
+    }
+
+    public void setHost(String host) {
+        this.host.setText(host);
     }
 }

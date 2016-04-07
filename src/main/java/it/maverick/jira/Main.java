@@ -15,6 +15,7 @@ public class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
+                System.setProperty("jsse.enableSNIExtension", "false");
                 JiraCardPrinter jiraCardPrinter = new JiraCardPrinter();
                 JiraCardPrinterView jiraCardPrinterView = new JiraCardPrinterSwingView(jiraCardPrinter);
                 jiraCardPrinter.installView(jiraCardPrinterView);

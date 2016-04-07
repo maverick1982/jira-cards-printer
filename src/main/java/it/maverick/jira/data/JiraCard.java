@@ -2,15 +2,11 @@ package it.maverick.jira.data;
 
 import it.maverick.jira.utils.CachedImages;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.font.FontRenderContext;
 import java.awt.font.LineBreakMeasurer;
 import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
 
@@ -32,9 +28,6 @@ public class JiraCard {
     private       String priorityUrl;
     private       String priorityName;
     private       double storyPoints;
-    private       String statusName;
-    private       String statusUrl;
-    private       Image  typeImage;
 
     public JiraCard(int id, String key, String summary) {
         this.id = id;
@@ -94,39 +87,9 @@ public class JiraCard {
         this.storyPoints = storyPoints;
     }
 
-    public String getStatusName() {
-        return statusName;
-    }
-
-    public void setStatusName(String statusName) {
-        this.statusName = statusName;
-    }
-
-    public String getStatusUrl() {
-        return statusUrl;
-    }
-
-    public void setStatusUrl(String statusUrl) {
-        this.statusUrl = statusUrl;
-    }
-
-    public Image getTypeImage() {
-        if (typeImage == null) {
-            try {
-                URL url = new URL(typeUrl);
-                typeImage = ImageIO.read(url);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return typeImage;
-    }
-
     @Override
     public String toString() {
-        return this.key + " - " + this.summary + "[id:" + this.id + "]";
+        return this.key + " - " + this.summary + " [id:" + this.id + "]";
     }
 
     private void drawTitle(Graphics graphics, String text, int x, int y, int width, int height) {

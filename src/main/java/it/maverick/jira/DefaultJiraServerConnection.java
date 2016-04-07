@@ -67,9 +67,9 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
     public List<JiraProject> getProjects() throws JiraConnectionException {
         List<JiraProject> projectsList = new ArrayList<JiraProject>();
         try {
-            JSONObject jsonProjectsList = new JSONObject(doRequest("/rest/greenhopper/1.0/rapidview"));
-            for (int i = 0; i < jsonProjectsList.optJSONArray("views").length(); i++) {
-                JiraProject jiraProject = JsonToJiraParser.parseProject(jsonProjectsList.optJSONArray("views").getJSONObject(i).toString());
+            JSONObject jsonProjectsList = new JSONObject(doRequest("/rest/agile/1.0/board?type=scrum"));
+            for (int i = 0; i < jsonProjectsList.optJSONArray("values").length(); i++) {
+                JiraProject jiraProject = JsonToJiraParser.parseProject(jsonProjectsList.optJSONArray("values").getJSONObject(i).toString());
                 projectsList.add(jiraProject);
             }
         } catch (Exception e) {
@@ -81,11 +81,19 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
     public List<JiraSprint> getSprints(int projectId) throws JiraConnectionException {
         List<JiraSprint> sprintsList = new ArrayList<JiraSprint>();
         try {
-            JSONObject jsonSprintsList = new JSONObject(doRequest("/rest/greenhopper/1.0/sprintquery/" + projectId));
-            for (int i = 0; i < jsonSprintsList.optJSONArray("sprints").length(); i++) {
-                JiraSprint jiraSprint = JsonToJiraParser.parseSprint(jsonSprintsList.optJSONArray("sprints").getJSONObject(i).toString());
-                sprintsList.add(jiraSprint);
-            }
+            int page = 0;
+            int sprintCount;
+            do {
+                int sprintStartIndex = 50 * page;
+                JSONObject jsonSprintsList = new JSONObject(doRequest("/rest/agile/1.0/board/" + projectId + "/sprint?startAt=" + sprintStartIndex));
+                sprintCount = jsonSprintsList.optJSONArray("values").length();
+                for (int i = 0; i < sprintCount; i++) {
+                    JiraSprint jiraSprint = JsonToJiraParser.parseSprint(jsonSprintsList.optJSONArray("values").getJSONObject(i).toString());
+                    sprintsList.add(jiraSprint);
+                }
+                page++;
+            } while (sprintCount > 0);
+
         } catch (Exception e) {
             throw new JiraConnectionException(e);
         }
@@ -95,14 +103,10 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
     public List<JiraCard> getCards(int projectId, int sprintId) throws JiraConnectionException {
         List<JiraCard> cardsList = new ArrayList<JiraCard>();
         try {
-            JSONObject jsonCardsList = new JSONObject(doRequest("/rest/greenhopper/1.0/rapid/charts/sprintreport?rapidViewId=" + projectId + "&sprintId=" + sprintId));
+            JSONObject jsonCardsList = new JSONObject(doRequest("/rest/agile/1.0/board/" + projectId + "/sprint/" + sprintId + "/issue"));
             JiraCard jiraCard;
-            for (int i = 0; i < jsonCardsList.getJSONObject("contents").getJSONArray("completedIssues").length(); i++) {
-                jiraCard = JsonToJiraParser.parseCard(jsonCardsList.getJSONObject("contents").getJSONArray("completedIssues").getJSONObject(i).toString());
-                cardsList.add(jiraCard);
-            }
-            for (int i = 0; i < jsonCardsList.getJSONObject("contents").getJSONArray("incompletedIssues").length(); i++) {
-                jiraCard = JsonToJiraParser.parseCard(jsonCardsList.getJSONObject("contents").getJSONArray("incompletedIssues").getJSONObject(i).toString());
+            for (int i = 0; i < jsonCardsList.getJSONArray("issues").length(); i++) {
+                jiraCard = JsonToJiraParser.parseCard(jsonCardsList.getJSONArray("issues").getJSONObject(i).toString());
                 cardsList.add(jiraCard);
             }
         } catch (Exception e) {

@@ -41,19 +41,20 @@ public class JsonToJiraParser {
     public static JiraCard parseCard(String jsonStringCard) {
         try {
             JSONObject jsonCard = new JSONObject(jsonStringCard);
+            JSONObject fields = jsonCard.getJSONObject("fields");
             int id = jsonCard.getInt("id");
             String key = jsonCard.getString("key");
-            String summary = jsonCard.getString("summary");
+            String summary = fields.getString("summary");
             JiraCard jiraCard = new JiraCard(id, key, summary);
-            jiraCard.setTypeName(jsonCard.getString("typeName"));
-            jiraCard.setTypeUrl(jsonCard.getString("typeUrl"));
-            jiraCard.setPriorityUrl(jsonCard.getString("priorityUrl"));
-            jiraCard.setPriorityName(jsonCard.getString("priorityName"));
+            JSONObject issueType = fields.getJSONObject("issuetype");
+            jiraCard.setTypeName(issueType.getString("name"));
+            jiraCard.setTypeUrl(issueType.getString("iconUrl"));
+            JSONObject issuePriority = fields.getJSONObject("priority");
+            jiraCard.setPriorityUrl(issuePriority.getString("iconUrl"));
+            jiraCard.setPriorityName(issuePriority.getString("name"));
             if (cardHasStoryPoints(jsonCard)) {
                 jiraCard.setStoryPoints(jsonCard.getJSONObject("estimateStatistic").getJSONObject("statFieldValue").getDouble("value"));
             }
-            jiraCard.setStatusName(jsonCard.getString("statusName"));
-            jiraCard.setStatusUrl(jsonCard.getString("statusUrl"));
             return jiraCard;
         } catch (JSONException e) {
             e.printStackTrace();

@@ -51,6 +51,7 @@ public class ProjectsSwingView extends JPanel {
 
     public ProjectsSwingView(final JiraCardPrinter jiraCardPrinter) {
 
+        projectsCombo.setMaximumRowCount(10);
         projectsCombo.setRenderer(new JiraProjectCellRenderer());
         projectsCombo.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {

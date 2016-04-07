@@ -92,7 +92,7 @@ public class XmlPreferencesStorage implements PreferencesStorage {
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             Transformer transformer = transformerFactory.newTransformer();
             DOMSource source = new DOMSource(document);
-            StreamResult result = new StreamResult(xmlFile);
+            StreamResult result = new StreamResult(xmlFile.getPath());
             transformer.transform(source, result);
         } catch (TransformerConfigurationException e) {
             e.printStackTrace();

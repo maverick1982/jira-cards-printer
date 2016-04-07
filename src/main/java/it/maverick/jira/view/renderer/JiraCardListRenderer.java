@@ -17,7 +17,7 @@ public class JiraCardListRenderer implements ListCellRenderer<JiraCard> {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setToolTipText(value.toString());
 
-        ImageIcon typeImage = new ImageIcon(value.getTypeImage());
+        ImageIcon typeImage = new ImageIcon(CACHED_IMAGES.getCachedImage(value.getTypeUrl()));
         JLabel typeImageLabel = new JLabel();
         typeImageLabel.setIcon(typeImage);
 

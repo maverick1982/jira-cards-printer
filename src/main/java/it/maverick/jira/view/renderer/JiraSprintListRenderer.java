@@ -19,12 +19,14 @@ public class JiraSprintListRenderer implements ListCellRenderer<JiraSprint> {
 
     private static final ImageIcon SPRINT_ACTIVE_ICON = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("sprint.active.icon")));
     private static final ImageIcon SPRINT_CLOSED_ICON = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("sprint.closed.icon")));
+    private static final ImageIcon SPRINT_FUTURE_ICON = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("sprint.future.icon")));
 
     private static final Map<String, ImageIcon> STATUS_ICON_MAP = new HashMap<String, ImageIcon>();
 
     static {
-        STATUS_ICON_MAP.put("ACTIVE", SPRINT_ACTIVE_ICON);
-        STATUS_ICON_MAP.put("CLOSED", SPRINT_CLOSED_ICON);
+        STATUS_ICON_MAP.put("active", SPRINT_ACTIVE_ICON);
+        STATUS_ICON_MAP.put("closed", SPRINT_CLOSED_ICON);
+        STATUS_ICON_MAP.put("future", SPRINT_FUTURE_ICON);
     }
 
     public Component getListCellRendererComponent(JList<? extends JiraSprint> list, JiraSprint value, int index, boolean isSelected, boolean cellHasFocus) {

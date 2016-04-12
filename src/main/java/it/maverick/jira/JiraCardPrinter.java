@@ -68,6 +68,8 @@ public class JiraCardPrinter {
     }
 
     public void connect(final String host, final String userName, final String password) {
+        final String cleanedHost = cleanHost(host);
+        jiraCardPrinterView.setHost(cleanedHost);
         jiraCardPrinterView.setHostEnabled(false);
         jiraCardPrinterView.setUserEnabled(false);
         jiraCardPrinterView.setPasswordEnabled(false);
@@ -85,7 +87,7 @@ public class JiraCardPrinter {
                     });
 
                     JiraUser jiraUser = new JiraUser(userName, password);
-                    JiraServer jiraServer = new DefaultJiraServer(host);
+                    JiraServer jiraServer = new DefaultJiraServer(cleanedHost);
                     jiraServerConnection = jiraServer.createConnection(jiraUser);
 
                     final List<JiraProject> projects = jiraServerConnection.getProjects();
@@ -97,7 +99,7 @@ public class JiraCardPrinter {
                     });
 
                     userPreferences.addUser(userName);
-                    userPreferences.addHost(host);
+                    userPreferences.addHost(cleanedHost);
                 } catch (JiraConnectionException e) {
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
@@ -109,6 +111,10 @@ public class JiraCardPrinter {
             }
         };
         thread.start();
+    }
+
+    private String cleanHost(String host) {
+        return host.replace("https://", "").replace("http://", "");
     }
 
     public void disconnect() {

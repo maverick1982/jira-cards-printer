@@ -1,5 +1,7 @@
 package it.maverick.jira.preferences;
 
+import it.maverick.jira.ConnectionProtocol;
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -12,6 +14,7 @@ public class UserPreferences {
     private final List<String>       users;
     private final PreferencesStorage preferencesStorage;
     private final List<String>       hosts;
+    private       ConnectionProtocol lastProtocol;
 
     public UserPreferences(PreferencesStorage preferencesStorage, int historyLimit) {
         this.preferencesStorage = preferencesStorage;
@@ -24,6 +27,8 @@ public class UserPreferences {
         for (String host : preferencesStorage.getHosts()) {
             hosts.add(host);
         }
+
+        lastProtocol = preferencesStorage.getProtocol();
 
         updateStorage(preferencesStorage);
     }
@@ -48,6 +53,8 @@ public class UserPreferences {
         for (String toRemoveHost : toRemoveHosts) {
             preferencesStorage.removeHost(toRemoveHost);
         }
+
+        preferencesStorage.setProtocol(lastProtocol);
     }
 
     public void addUser(String userName) {
@@ -76,6 +83,15 @@ public class UserPreferences {
 
     public List<String> getHosts() {
         return hosts;
+    }
+
+    public void setProtocol(ConnectionProtocol connectionProtocol) {
+        lastProtocol = connectionProtocol;
+        updateStorage(preferencesStorage);
+    }
+
+    public ConnectionProtocol getProtocol() {
+        return lastProtocol;
     }
 
     private static class LimitedQueue<T> extends LinkedList<T> {

@@ -1,5 +1,6 @@
 package it.maverick.jira.preferences;
 
+import it.maverick.jira.ConnectionProtocol;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -19,11 +20,15 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Created by Pasquale on 21/03/2016.
  */
 public class XmlPreferencesStorage implements PreferencesStorage {
+
+    private static final Logger LOGGER = Logger.getLogger(XmlPreferencesStorage.class.getName());
 
     private static final String PREFERENCES_PATH = System.getProperty("user.home") + File.separator + ".JiraCardsPrinter";
 
@@ -33,8 +38,10 @@ public class XmlPreferencesStorage implements PreferencesStorage {
     private static final String TAG_USER                  = "user";
     private static final String ATTRIBUTE_USER_NAME       = "userName";
     private static final String TAG_HOSTS                 = "hosts";
+    private static final String ATTRIBUTE_LAST_PROTOCOL   = "lastProtocol";
     private static final String TAG_HOST                  = "host";
     private static final String ATTRIBUTE_HOST_NAME       = "hostName";
+    private static final String DEFAULT_PROTOCOL          = "HTTPS";
 
     private final File            xmlFile;
     private       DocumentBuilder documentBuilder;
@@ -79,6 +86,7 @@ public class XmlPreferencesStorage implements PreferencesStorage {
         document.appendChild(rootElement);
 
         Element hostsElement = document.createElement(TAG_HOSTS);
+        hostsElement.setAttribute(ATTRIBUTE_LAST_PROTOCOL, DEFAULT_PROTOCOL);
         rootElement.appendChild(hostsElement);
 
         Element usersElement = document.createElement(TAG_USERS);
@@ -144,6 +152,29 @@ public class XmlPreferencesStorage implements PreferencesStorage {
         hosts.appendChild(hostElement);
 
         flushXml();
+    }
+
+    public void setProtocol(ConnectionProtocol connectionProtocol) {
+        Node hosts = document.getElementsByTagName(TAG_HOSTS).item(0);
+        if (hosts.getNodeType() == Node.ELEMENT_NODE) {
+            Element hostsElement = (Element) hosts;
+            hostsElement.setAttribute(ATTRIBUTE_LAST_PROTOCOL, connectionProtocol.name());
+        }
+    }
+
+    public ConnectionProtocol getProtocol() {
+        ConnectionProtocol connectionProtocol = ConnectionProtocol.HTTPS;
+        Node hosts = document.getElementsByTagName(TAG_HOSTS).item(0);
+        if (hosts.getNodeType() == Node.ELEMENT_NODE) {
+            Element hostsElement = (Element) hosts;
+            String lastProtocolAttribute = hostsElement.getAttribute(ATTRIBUTE_LAST_PROTOCOL);
+            try {
+                connectionProtocol = ConnectionProtocol.valueOf(lastProtocolAttribute);
+            } catch (Exception e) {
+                LOGGER.log(Level.INFO, "Cannot read last connection protocol from xml preference file. It will be set to default value HTTPS");
+            }
+        }
+        return connectionProtocol;
     }
 
     public List<String> getUsers() {

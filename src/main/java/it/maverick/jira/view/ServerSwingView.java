@@ -1,6 +1,8 @@
 package it.maverick.jira.view;
 
+import it.maverick.jira.ConnectionProtocol;
 import it.maverick.jira.JiraCardPrinter;
+import it.maverick.jira.view.renderer.ConnectionProtocolCellRenderer;
 
 import javax.swing.*;
 import java.awt.*;
@@ -28,14 +30,16 @@ public class ServerSwingView extends JPanel {
     private static final ImageIcon CONNECT_ICON     = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("connect.server.icon")));
     private static final ImageIcon DISCONNECT_ICON  = new ImageIcon(CLASS_LOADER.getResource(RESOURCES.getString("disconnect.server.icon")));
 
-    private final JLabel     hostLabel        = new JLabel(HOST_LABEL);
-    private final JLabel     userLabel        = new JLabel(USER_LABEL);
-    private final JLabel     passwordLabel    = new JLabel(PASSWORD_LABEL);
-    private final JTextField host             = new JTextField();
-    private final JTextField user             = new JTextField();
-    private final JTextField password         = new JPasswordField();
-    private final JButton    connectButton    = new JButton(CONNECT_LABEL);
-    private final JButton    disconnectButton = new JButton(DISCONNECT_LABEL);
+    private final DefaultComboBoxModel<ConnectionProtocol> protocolComboModel = new DefaultComboBoxModel<ConnectionProtocol>();
+    private final JComboBox<ConnectionProtocol>            protocolComboBox   = new JComboBox<ConnectionProtocol>(protocolComboModel);
+    private final JLabel                                   hostLabel          = new JLabel(HOST_LABEL);
+    private final JLabel                                   userLabel          = new JLabel(USER_LABEL);
+    private final JLabel                                   passwordLabel      = new JLabel(PASSWORD_LABEL);
+    private final JTextField                               host               = new JTextField();
+    private final JTextField                               user               = new JTextField();
+    private final JTextField                               password           = new JPasswordField();
+    private final JButton                                  connectButton      = new JButton(CONNECT_LABEL);
+    private final JButton                                  disconnectButton   = new JButton(DISCONNECT_LABEL);
 
     private final AbstractAction connectAction;
 
@@ -43,9 +47,14 @@ public class ServerSwingView extends JPanel {
 
         connectAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                jiraCardPrinter.connect(host.getText(), user.getText(), password.getText());
+                ConnectionProtocol selectedProtocol = protocolComboBox.getItemAt(protocolComboBox.getSelectedIndex());
+                jiraCardPrinter.connect(selectedProtocol, host.getText(), user.getText(), password.getText());
             }
         };
+
+        protocolComboBox.setRenderer(new ConnectionProtocolCellRenderer());
+        protocolComboModel.addElement(ConnectionProtocol.HTTPS);
+        protocolComboModel.addElement(ConnectionProtocol.HTTP);
 
         configureTextField(host);
         configureTextField(user);
@@ -65,7 +74,7 @@ public class ServerSwingView extends JPanel {
     }
 
     private void configureTextField(JTextField textField) {
-        textField.setPreferredSize(new Dimension(200, textField.getPreferredSize().height));
+        textField.setPreferredSize(new Dimension(180, textField.getPreferredSize().height));
         textField.addActionListener(connectAction);
         setSelectionOnFocus(textField);
     }
@@ -84,13 +93,18 @@ public class ServerSwingView extends JPanel {
     private void layoutComponent() {
         setLayout(new GridBagLayout());
         add(hostLabel, new GridBagConstraints(0, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
-        add(host, new GridBagConstraints(1, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
-        add(userLabel, new GridBagConstraints(2, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
-        add(user, new GridBagConstraints(3, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
-        add(passwordLabel, new GridBagConstraints(4, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
-        add(password, new GridBagConstraints(5, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
-        add(connectButton, new GridBagConstraints(6, 0, 1, 1, 0, 0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2), 0, 0));
-        add(disconnectButton, new GridBagConstraints(7, 0, 1, 1, 1, 1, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2), 0, 0));
+        add(protocolComboBox, new GridBagConstraints(1, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
+        add(host, new GridBagConstraints(2, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
+        add(userLabel, new GridBagConstraints(3, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
+        add(user, new GridBagConstraints(4, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
+        add(passwordLabel, new GridBagConstraints(5, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
+        add(password, new GridBagConstraints(6, 0, 1, 1, 0, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(2, 2, 2, 2), 0, 0));
+        add(connectButton, new GridBagConstraints(7, 0, 1, 1, 0, 0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2), 0, 0));
+        add(disconnectButton, new GridBagConstraints(8, 0, 1, 1, 1, 1, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(2, 2, 2, 2), 0, 0));
+    }
+
+    public void setConnectionProtocolEnabled(boolean enabled) {
+        protocolComboBox.setEnabled(enabled);
     }
 
     public void setHostEnabled(boolean enabled) {
@@ -129,5 +143,9 @@ public class ServerSwingView extends JPanel {
 
     public void setHost(String host) {
         this.host.setText(host);
+    }
+
+    public void setConnectionProtocol(ConnectionProtocol connectionProtocol) {
+        protocolComboBox.setSelectedItem(connectionProtocol);
     }
 }

@@ -1,5 +1,7 @@
 package it.maverick.jira.preferences;
 
+import it.maverick.jira.ConnectionProtocol;
+
 import java.util.List;
 
 /**
@@ -18,4 +20,8 @@ public interface PreferencesStorage {
     void removeHost(String host);
 
     void addHost(String host);
+
+    void setProtocol(ConnectionProtocol connectionProtocol);
+
+    ConnectionProtocol getProtocol();
 }

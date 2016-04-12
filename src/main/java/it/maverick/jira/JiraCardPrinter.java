@@ -49,6 +49,7 @@ public class JiraCardPrinter {
 
     public void installView(JiraCardPrinterView jiraCardPrinterView) {
         this.jiraCardPrinterView = jiraCardPrinterView;
+        ConnectionProtocol lastProtocol = userPreferences.getProtocol();
         List<String> users = userPreferences.getUsers();
         List<String> hosts = userPreferences.getHosts();
         jiraCardPrinterView.setUsersForHint(users);
@@ -59,6 +60,10 @@ public class JiraCardPrinter {
         if (!hosts.isEmpty()) {
             jiraCardPrinterView.setHost(hosts.get(hosts.size() - 1));
         }
+        if (lastProtocol != null) {
+            jiraCardPrinterView.setConnectionProtocol(lastProtocol);
+        }
+
         jiraCardPrinterView.setCardsPerPage(selectedCardsPerPage);
         disconnect();
     }
@@ -67,9 +72,10 @@ public class JiraCardPrinter {
         jiraCardPrinterView.setVisible(true);
     }
 
-    public void connect(final String host, final String userName, final String password) {
+    public void connect(final ConnectionProtocol connectionProtocol, final String host, final String userName, final String password) {
         final String cleanedHost = cleanHost(host);
         jiraCardPrinterView.setHost(cleanedHost);
+        jiraCardPrinterView.setConnectionProtocolEnabled(false);
         jiraCardPrinterView.setHostEnabled(false);
         jiraCardPrinterView.setUserEnabled(false);
         jiraCardPrinterView.setPasswordEnabled(false);
@@ -87,7 +93,7 @@ public class JiraCardPrinter {
                     });
 
                     JiraUser jiraUser = new JiraUser(userName, password);
-                    JiraServer jiraServer = new DefaultJiraServer(cleanedHost);
+                    JiraServer jiraServer = new DefaultJiraServer(connectionProtocol, cleanedHost);
                     jiraServerConnection = jiraServer.createConnection(jiraUser);
 
                     final List<JiraProject> projects = jiraServerConnection.getProjects();
@@ -98,6 +104,7 @@ public class JiraCardPrinter {
                         }
                     });
 
+                    userPreferences.setProtocol(connectionProtocol);
                     userPreferences.addUser(userName);
                     userPreferences.addHost(cleanedHost);
                 } catch (JiraConnectionException e) {
@@ -120,6 +127,7 @@ public class JiraCardPrinter {
     public void disconnect() {
         jiraServerConnection = null;
 
+        jiraCardPrinterView.setConnectionProtocolEnabled(true);
         jiraCardPrinterView.setHostEnabled(true);
         jiraCardPrinterView.setUserEnabled(true);
         jiraCardPrinterView.setPasswordEnabled(true);

@@ -1,5 +1,6 @@
 package it.maverick.jira.view;
 
+import it.maverick.jira.ConnectionProtocol;
 import it.maverick.jira.JiraCardPrinter;
 import it.maverick.jira.data.JiraCard;
 import it.maverick.jira.data.JiraProject;
@@ -89,6 +90,10 @@ public class JiraCardPrinterSwingView extends JFrame implements JiraCardPrinterV
         projectsView.setCards(cards);
     }
 
+    public void setConnectionProtocolEnabled(boolean enabled) {
+        serverSwingView.setConnectionProtocolEnabled(enabled);
+    }
+
     public void setHostEnabled(boolean enabled) {
         serverSwingView.setHostEnabled(enabled);
     }
@@ -151,5 +156,9 @@ public class JiraCardPrinterSwingView extends JFrame implements JiraCardPrinterV
 
     public void setHost(String host) {
         serverSwingView.setHost(host);
+    }
+
+    public void setConnectionProtocol(ConnectionProtocol connectionProtocol) {
+        serverSwingView.setConnectionProtocol(connectionProtocol);
     }
 }

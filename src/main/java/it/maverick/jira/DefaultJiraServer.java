@@ -20,8 +20,8 @@ public class DefaultJiraServer implements JiraServer {
 
     private final HttpHost targetHost;
 
-    public DefaultJiraServer(String host) {
-        targetHost = new HttpHost(host, 443, "https");
+    public DefaultJiraServer(ConnectionProtocol connectionProtocol, String host) {
+        targetHost = new HttpHost(host, 443, connectionProtocol.toString());
     }
 
     public JiraServerConnection createConnection(JiraUser jiraUser) {

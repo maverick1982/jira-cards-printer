@@ -16,6 +16,24 @@ import static org.junit.Assert.assertEquals;
 public class UserPreferencesTest {
 
     @Test
+    public void testSetHttpProtocol() throws Exception {
+        PreferencesStorage preferencesStorage = new FakePreferencesStorage(new ArrayList<String>(), new ArrayList<String>());
+        UserPreferences userPreferences = new UserPreferences(preferencesStorage, 5);
+        userPreferences.setProtocol(ConnectionProtocol.HTTP);
+
+        assertEquals(ConnectionProtocol.HTTP, userPreferences.getProtocol());
+    }
+
+    @Test
+    public void testSetHttpsProtocol() throws Exception {
+        PreferencesStorage preferencesStorage = new FakePreferencesStorage(new ArrayList<String>(), new ArrayList<String>());
+        UserPreferences userPreferences = new UserPreferences(preferencesStorage, 5);
+        userPreferences.setProtocol(ConnectionProtocol.HTTPS);
+
+        assertEquals(ConnectionProtocol.HTTPS, userPreferences.getProtocol());
+    }
+
+    @Test
     public void testAddOneUser() throws Exception {
         PreferencesStorage preferencesStorage = new FakePreferencesStorage(new ArrayList<String>(), new ArrayList<String>());
         UserPreferences userPreferences = new UserPreferences(preferencesStorage, 5);
@@ -210,6 +228,22 @@ public class UserPreferencesTest {
     }
 
     @Test
+    public void testGetHttpProtocolFromStorage() throws Exception {
+        PreferencesStorage preferencesStorage = new FakePreferencesStorage(new ArrayList<String>(), new ArrayList<String>(), ConnectionProtocol.HTTP);
+        UserPreferences userPreferences = new UserPreferences(preferencesStorage, 2);
+
+        assertEquals(ConnectionProtocol.HTTP, userPreferences.getProtocol());
+    }
+
+    @Test
+    public void testGetHttpsProtocolFromStorage() throws Exception {
+        PreferencesStorage preferencesStorage = new FakePreferencesStorage(new ArrayList<String>(), new ArrayList<String>(), ConnectionProtocol.HTTPS);
+        UserPreferences userPreferences = new UserPreferences(preferencesStorage, 2);
+
+        assertEquals(ConnectionProtocol.HTTPS, userPreferences.getProtocol());
+    }
+
+    @Test
     public void testGetHostFromStorage() throws Exception {
         List<String> hosts = Arrays.asList("host1", "host2");
         PreferencesStorage preferencesStorage = new FakePreferencesStorage(new ArrayList<String>(), hosts);
@@ -283,12 +317,18 @@ public class UserPreferencesTest {
 
     private class FakePreferencesStorage implements PreferencesStorage {
 
-        private List<String> users;
-        private List<String> hosts;
+        private List<String>       users;
+        private List<String>       hosts;
+        private ConnectionProtocol connectionProtocol;
 
         public FakePreferencesStorage(List<String> users, List<String> hosts) {
+            this(users, hosts, ConnectionProtocol.HTTP);
+        }
+
+        public FakePreferencesStorage(List<String> users, List<String> hosts, ConnectionProtocol protocol) {
             this.users = users;
             this.hosts = hosts;
+            this.connectionProtocol = protocol;
         }
 
         public synchronized List<String> getUsers() {
@@ -313,6 +353,14 @@ public class UserPreferencesTest {
 
         public void addHost(String host) {
             hosts.add(host);
+        }
+
+        public void setProtocol(ConnectionProtocol connectionProtocol) {
+            this.connectionProtocol = connectionProtocol;
+        }
+
+        public ConnectionProtocol getProtocol() {
+            return connectionProtocol;
         }
     }
 }

@@ -1,5 +1,6 @@
 package it.maverick.jira.view;
 
+import it.maverick.jira.ConnectionProtocol;
 import it.maverick.jira.data.JiraCard;
 import it.maverick.jira.data.JiraProject;
 import it.maverick.jira.data.JiraSprint;
@@ -19,6 +20,8 @@ public interface JiraCardPrinterView {
     void setSprints(List<JiraSprint> sprints);
 
     void setCards(List<JiraCard> cards);
+
+    void setConnectionProtocolEnabled(boolean enabled);
 
     void setHostEnabled(boolean enabled);
 
@@ -51,4 +54,6 @@ public interface JiraCardPrinterView {
     void setUser(String user);
 
     void setHost(String host);
+
+    void setConnectionProtocol(ConnectionProtocol connectionProtocol);
 }

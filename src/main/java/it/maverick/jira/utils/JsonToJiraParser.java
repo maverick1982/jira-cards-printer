@@ -53,7 +53,7 @@ public class JsonToJiraParser {
             jiraCard.setPriorityUrl(issuePriority.getString("iconUrl"));
             jiraCard.setPriorityName(issuePriority.getString("name"));
             if (cardHasStoryPoints(jsonCard)) {
-                jiraCard.setStoryPoints(jsonCard.getJSONObject("estimateStatistic").getJSONObject("statFieldValue").getDouble("value"));
+                jiraCard.setStoryPoints(fields.getInt("customfield_10083"));
             }
             return jiraCard;
         } catch (JSONException e) {
@@ -64,13 +64,10 @@ public class JsonToJiraParser {
 
     private static boolean cardHasStoryPoints(JSONObject jsonCard) {
         try {
-            if (jsonCard.getJSONObject("estimateStatistic") == null ||
-                    jsonCard.getJSONObject("estimateStatistic").getJSONObject("statFieldValue") == null ||
-                    jsonCard.getJSONObject("estimateStatistic").getJSONObject("statFieldValue").getDouble("value") == Double.NaN)
-                return false;
+            jsonCard.getJSONObject("fields").getDouble("customfield_10083");
+            return true;
         } catch (JSONException e) {
             return false;
         }
-        return true;
     }
 }

@@ -74,7 +74,7 @@ public class ServerSwingView extends JPanel {
     }
 
     private void configureTextField(JTextField textField) {
-        textField.setPreferredSize(new Dimension(180, textField.getPreferredSize().height));
+        textField.setPreferredSize(new Dimension(170, textField.getPreferredSize().height));
         textField.addActionListener(connectAction);
         setSelectionOnFocus(textField);
     }

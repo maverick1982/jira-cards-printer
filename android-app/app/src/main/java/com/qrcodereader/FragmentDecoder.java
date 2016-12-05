@@ -63,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -172,6 +173,58 @@ public class FragmentDecoder extends Fragment
         }
 
     };
+    private int count;
+    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
+    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
+            new ImageReader.OnImageAvailableListener() {
+
+                @Override
+                public void onImageAvailable(ImageReader reader) {
+                    Image img = null;
+                    img = reader.acquireLatestImage();
+                    Result rawResult = null;
+                    try {
+                        if (img == null) throw new NullPointerException("cannot be null");
+                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
+                        byte[] data = new byte[buffer.remaining()];
+                        buffer.get(data);
+                        int width = img.getWidth();
+                        int height = img.getHeight();
+                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
+                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
+                        onQRCodeRead(rawResult, img);
+                        count = 0;
+                    } catch (ReaderException ignored) {
+                        if (count > 8) {
+                            cache.clear();
+                            Canvas canvas = mOverlayView.lockCanvas();
+                            try {
+                                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                            } finally {
+                                mOverlayView.unlockCanvasAndPost(canvas);
+                            }
+
+                        }
+                        count++;
+                        /* Ignored */
+                    } catch (NullPointerException ex) {
+                        ex.printStackTrace();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    } finally {
+
+                        mQrReader.reset();
+                        if (img != null)
+                            img.close();
+
+                    }
+                }
+
+            };
     /**
      * {@link TextureView.SurfaceTextureListener} handles several lifecycle events on a
      * {@link TextureView}.
@@ -198,48 +251,6 @@ public class FragmentDecoder extends Fragment
                 @Override
                 public void onSurfaceTextureUpdated(SurfaceTexture texture) {
 
-                }
-
-            };
-    private int count;
-    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
-            new ImageReader.OnImageAvailableListener() {
-
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image img = null;
-                    img = reader.acquireLatestImage();
-                    Result rawResult = null;
-                    try {
-                        if (img == null) throw new NullPointerException("cannot be null");
-                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
-                        byte[] data = new byte[buffer.remaining()];
-                        buffer.get(data);
-                        int width = img.getWidth();
-                        int height = img.getHeight();
-                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
-                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
-                        onQRCodeRead(rawResult, img);
-                        count = 0;
-                    } catch (ReaderException ignored) {
-                        if (count > 8) {
-                            Canvas canvas = mOverlayView.lockCanvas();
-                            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-                            mOverlayView.unlockCanvasAndPost(canvas);
-                        }
-                        count++;
-                        /* Ignored */
-                    } catch (NullPointerException ex) {
-                        ex.printStackTrace();
-                    } finally {
-
-                        mQrReader.reset();
-                        if (img != null)
-                            img.close();
-
-                    }
                 }
 
             };
@@ -620,56 +631,86 @@ public class FragmentDecoder extends Fragment
         mTextureView.setTransform(matrix);*/
     }
 
-    public void onQRCodeRead(final Result result, Image image) throws NotFoundException {
+    public void onQRCodeRead(final Result result, Image image) throws NotFoundException, ExecutionException, InterruptedException {
+        String username = getActivity().getBaseContext().getString(R.string.username);
+        String password = getActivity().getBaseContext().getString(R.string.password);
+        String key = result.getText();
+        AsyncTask<String, Void, String> asyncTask = cache.get(key);
+        if (asyncTask == null) {
+            cache.clear();
+            JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(username, password);
+            asyncTask = jiraInformationDownload.execute(key);
+            cache.put(key, asyncTask);
+        }
         ResultPoint[] resultPoints = result.getResultPoints();
-
-
         Matrix transform = new Matrix();
         Canvas canvas = mOverlayView.lockCanvas();
-        Rect clipBounds = image.getCropRect();
+        try {
+            Rect clipBounds = image.getCropRect();
 
-        transform.postRotate(90);
-        transform.postTranslate(clipBounds.height(), 0);
+            transform.postRotate(90);
+            transform.postTranslate(clipBounds.height(), 0);
 
-        float sx = mOverlayView.getRatioWidth() / (float) clipBounds.height();
-        float sy = mOverlayView.getHeight() / (float) clipBounds.width();
-        transform.postScale(sx, sy);
+            float sx = mOverlayView.getRatioWidth() / (float) clipBounds.height();
+            float sy = mOverlayView.getHeight() / (float) clipBounds.width();
+            transform.postScale(sx, sy);
 
 
-        PointF p0 = getPointF(resultPoints[0], transform, clipBounds);
-        PointF p1 = getPointF(resultPoints[1], transform, clipBounds);
-        PointF p2 = getPointF(resultPoints[2], transform, clipBounds);
+            PointF p0 = getPointF(resultPoints[0], transform, clipBounds);
+            PointF p1 = getPointF(resultPoints[1], transform, clipBounds);
+            PointF p2 = getPointF(resultPoints[2], transform, clipBounds);
 
-        float dx = p2.x - p1.x;
-        float dy = p2.y - p1.y;
+            float dx = p2.x - p1.x;
+            float dy = p2.y - p1.y;
 
-        PointF p3 = new PointF(p0.x + dx, p0.y + dy);
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setStyle(Paint.Style.FILL_AND_STROKE);
+            PointF p3 = new PointF(p0.x + dx, p0.y + dy);
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStyle(Paint.Style.FILL_AND_STROKE);
 
-        paint.setColor(Color.argb(255, 241, 226, 95));
-        float vx = p0.x - p1.x;
-        float vy = p0.y - p1.y;
+            paint.setColor(Color.argb(255, 241, 226, 95));
+            float vx = p0.x - p1.x;
+            float vy = p0.y - p1.y;
 
-        float v = (float) (Math.sqrt(vx * vx + vy * vy) / 1.75);
-        paint.setStrokeWidth(v);
+            float v = (float) (Math.sqrt(vx * vx + vy * vy) / 1.75);
+            paint.setStrokeWidth(v);
 
-        Path wallpath = new Path();
-        wallpath.reset(); // only needed when reusing this path for a new build
-        wallpath.moveTo(p0.x, p0.y); // used for first point
-        wallpath.lineTo(p1.x, p1.y);
-        wallpath.lineTo(p2.x, p2.y);
-        wallpath.lineTo(p3.x, p3.y);
-        wallpath.lineTo(p0.x, p0.y);
-        wallpath.lineTo(p1.x, p1.y);
-        canvas.drawPath(wallpath, paint);
-        Paint foreground = new Paint();
-        foreground.setColor(Color.BLACK);
-        foreground.setTextSize(100);
-        canvas.drawText(result.getText(), p0.x, p0.y, foreground);//// TODO:  getRobe(result)
+            Path wallpath = new Path();
+            wallpath.reset(); // only needed when reusing this path for a new build
+            wallpath.moveTo(p0.x, p0.y); // used for first point
+            wallpath.lineTo(p1.x, p1.y);
+            wallpath.lineTo(p2.x, p2.y);
+            wallpath.lineTo(p3.x, p3.y);
+            wallpath.lineTo(p0.x, p0.y);
+            wallpath.lineTo(p1.x, p1.y);
+            canvas.drawPath(wallpath, paint);
+            Paint foreground = new Paint();
+            foreground.setColor(Color.BLACK);
+            float textSize = vy / 2;
+            foreground.setTextSize(textSize);
+            String text = "loading " + key;
+            if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
+                String s = asyncTask.get();
+                if (s == null) {
+                    text = "N/A";
+                } else {
+                    text = s;
 
-        mOverlayView.unlockCanvasAndPost(canvas);
+                }
+            }
+            String[] split = text.split("\n");
+            for (int i = 0; i < split.length; i++) {
+                drawString(canvas, p0, p1, foreground, split[i], i, textSize, (int) dx);
+            }
+
+        } finally {
+            mOverlayView.unlockCanvasAndPost(canvas);
+        }
+    }
+
+    private void drawString(Canvas canvas, PointF p0, PointF p1, Paint foreground, String text, int i, float textSize, int dx) {
+        float v1 = foreground.measureText(text);
+        canvas.drawText(text, p0.x + (dx / 2) - (v1 / 2), p1.y + (i * textSize), foreground);//// TODO:  getRobe(result)
     }
 
 //    private String getRobe(Result result) {

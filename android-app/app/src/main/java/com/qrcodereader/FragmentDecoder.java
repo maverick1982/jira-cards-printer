@@ -54,7 +54,6 @@ import com.google.zxing.ReaderException;
 import com.google.zxing.Result;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.common.detector.WhiteRectangleDetector;
 import com.google.zxing.qrcode.QRCodeReader;
 
 import java.nio.ByteBuffer;
@@ -70,10 +69,8 @@ import java.util.concurrent.TimeUnit;
 
 import static android.hardware.camera2.CameraCharacteristics.LENS_FACING;
 import static android.hardware.camera2.CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
-import static android.hardware.camera2.CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_FAST;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_STATE_ACTIVE_SCAN;
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
-import static android.hardware.camera2.CaptureRequest.BLACK_LEVEL_LOCK;
 import static android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE;
 
 
@@ -135,39 +132,6 @@ public class FragmentDecoder extends Fragment
     private String mCameraId;
     private AutoFitTextureView mTextureView;
     private AutoFitTextureView mOverlayView;
-    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
-            new ImageReader.OnImageAvailableListener() {
-
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image img = null;
-                    img = reader.acquireLatestImage();
-                    Result rawResult = null;
-                    try {
-                        if (img == null) throw new NullPointerException("cannot be null");
-                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
-                        byte[] data = new byte[buffer.remaining()];
-                        buffer.get(data);
-                        int width = img.getWidth();
-                        int height = img.getHeight();
-                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
-                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
-                        onQRCodeRead(rawResult, img, bitmap);
-                    } catch (ReaderException ignored) {
-                        /* Ignored */
-                    } catch (NullPointerException ex) {
-                        ex.printStackTrace();
-                    } finally {
-                        mQrReader.reset();
-                        if (img != null)
-                            img.close();
-
-                    }
-                }
-
-            };
     //private SurfaceHolder holder;
     private String prevText = "";
     private CameraCaptureSession mCaptureSession;
@@ -235,6 +199,47 @@ public class FragmentDecoder extends Fragment
 
             };
     private int count;
+    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
+            new ImageReader.OnImageAvailableListener() {
+
+                @Override
+                public void onImageAvailable(ImageReader reader) {
+                    Image img = null;
+                    img = reader.acquireLatestImage();
+                    Result rawResult = null;
+                    try {
+                        if (img == null) throw new NullPointerException("cannot be null");
+                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
+                        byte[] data = new byte[buffer.remaining()];
+                        buffer.get(data);
+                        int width = img.getWidth();
+                        int height = img.getHeight();
+                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
+                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
+                        onQRCodeRead(rawResult, img);
+                        count = 0;
+                    } catch (ReaderException ignored) {
+                        if (count > 8) {
+                            Canvas canvas = mOverlayView.lockCanvas();
+                            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                            mOverlayView.unlockCanvasAndPost(canvas);
+                        }
+                        count++;
+                        /* Ignored */
+                    } catch (NullPointerException ex) {
+                        ex.printStackTrace();
+                    } finally {
+
+                        mQrReader.reset();
+                        if (img != null)
+                            img.close();
+
+                    }
+                }
+
+            };
 
     private static Bitmap imageToBitmap(Image img) {
         Bitmap bitmap = null;
@@ -612,14 +617,8 @@ public class FragmentDecoder extends Fragment
         mTextureView.setTransform(matrix);*/
     }
 
-    public void onQRCodeRead(final Result result, Image image, BinaryBitmap bitmap) throws NotFoundException {
+    public void onQRCodeRead(final Result result, Image image) throws NotFoundException {
         ResultPoint[] resultPoints = result.getResultPoints();
-
-
-        int xCenter = (int) ((resultPoints[2].getX() + resultPoints[0].getX()) / 2);
-        int yCenter = (int) ((resultPoints[0].getY() + resultPoints[1].getY()) / 2);
-
-        float[] centroid = centroid(new float[]{resultPoints[0].getX(), resultPoints[0].getY(), resultPoints[1].getX(), resultPoints[1].getY(), resultPoints[2].getX(), resultPoints[2].getY()});
 
 
         Matrix transform = new Matrix();
@@ -628,6 +627,7 @@ public class FragmentDecoder extends Fragment
 
         transform.postRotate(90);
         transform.postTranslate(clipBounds.height(), 0);
+
         float sx = mOverlayView.getRatioWidth() / (float) clipBounds.height();
         float sy = mOverlayView.getHeight() / (float) clipBounds.width();
         transform.postScale(sx, sy);
@@ -641,11 +641,11 @@ public class FragmentDecoder extends Fragment
         float dy = p2.y - p1.y;
 
         PointF p3 = new PointF(p0.x + dx, p0.y + dy);
-        Log.d("canvas", canvas.getWidth() + "," + canvas.getHeight());
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
-        paint.setColor(Color.GREEN);
+
+        paint.setColor(Color.argb(255, 241, 226, 95));
         float vx = p0.x - p1.x;
         float vy = p0.y - p1.y;
 

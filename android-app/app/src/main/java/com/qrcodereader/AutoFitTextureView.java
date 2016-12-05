@@ -36,6 +36,7 @@ import android.view.TextureView;
 public class AutoFitTextureView extends TextureView {
 
 
+
     private int mRatioWidth = 0;
     private int mRatioHeight = 0;
 
@@ -54,6 +55,13 @@ public class AutoFitTextureView extends TextureView {
         super(context, attrs, defStyle);
     }
 
+    public int getRatioWidth() {
+        return mRatioWidth;
+    }
+
+    public int getRatioHeight() {
+        return mRatioHeight;
+    }
 
     /**
      * Sets the aspect ratio for this view. The size of the view will be measured based on the ratio

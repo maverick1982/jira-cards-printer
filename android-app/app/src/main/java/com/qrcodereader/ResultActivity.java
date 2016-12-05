@@ -1,8 +1,9 @@
 package com.qrcodereader;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.widget.TextView;
+import android.widget.ImageView;
 
 /**
  * ResultActivity.class
@@ -29,16 +30,16 @@ import android.widget.TextView;
  */
 
 public class ResultActivity extends Activity {
-    TextView textView;
+    ImageView textView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_result);
 
-        textView = (TextView) findViewById(R.id.textView);
-        String theResult = (String) getIntent().getExtras().get("text");
-        textView.setText(theResult);
+        textView = (ImageView) findViewById(R.id.imageView);
+        Bitmap theResult = (Bitmap) getIntent().getExtras().get("bmp");
+        textView.setImageBitmap(theResult);
     }
 
 }

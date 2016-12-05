@@ -30,6 +30,7 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -54,8 +55,8 @@ import com.google.zxing.ReaderException;
 import com.google.zxing.Result;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.common.detector.WhiteRectangleDetector;
 import com.google.zxing.qrcode.QRCodeReader;
+import com.jira.JiraInformationDownload;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -65,15 +66,14 @@ import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import static android.hardware.camera2.CameraCharacteristics.LENS_FACING;
 import static android.hardware.camera2.CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
-import static android.hardware.camera2.CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_FAST;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_STATE_ACTIVE_SCAN;
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
-import static android.hardware.camera2.CaptureRequest.BLACK_LEVEL_LOCK;
 import static android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE;
 
 
@@ -664,11 +664,27 @@ public class FragmentDecoder extends Fragment
         Paint foreground = new Paint();
         foreground.setColor(Color.BLACK);
         foreground.setTextSize(100);
-        canvas.drawText(result.getText(), p0.x, p0.y, foreground);
+        canvas.drawText(result.getText(), p0.x, p0.y, foreground);//// TODO:  getRobe(result)
 
         mOverlayView.unlockCanvasAndPost(canvas);
-
     }
+
+//    private String getRobe(Result result) {
+//        JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(username, password);
+//
+//        AsyncTask<String, Void, String> execute = jiraInformationDownload.execute("MF-10178");
+//        try {
+//            return execute.get();
+//        } catch (InterruptedException | ExecutionException e) {
+//            e.printStackTrace();
+//        }
+//        return "NONEEE";
+////        try {
+////            Toast.makeText(getBaseContext(),execute.get(), Toast.LENGTH_LONG).show();
+////        } catch (InterruptedException | ExecutionException e) {
+////            e.printStackTrace();
+////        }
+//    }
 
     @NonNull
     private PointF getPointF(ResultPoint topLeft, Matrix transform, Rect clipBounds) {

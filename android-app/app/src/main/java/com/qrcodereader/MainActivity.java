@@ -2,9 +2,15 @@ package com.qrcodereader;
 
 import android.app.FragmentTransaction;
 import android.graphics.Point;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
+
+import com.jira.JiraInformationDownload;
+
+import java.util.concurrent.ExecutionException;
 
 /**
  * MainActivity.class

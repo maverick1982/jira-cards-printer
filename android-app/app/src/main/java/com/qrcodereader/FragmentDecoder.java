@@ -7,7 +7,6 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
@@ -42,8 +41,10 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
 import com.google.zxing.ReaderException;
 import com.google.zxing.Result;
+import com.google.zxing.ResultPoint;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.qrcode.QRCodeReader;
 
@@ -52,7 +53,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -96,7 +99,6 @@ public class FragmentDecoder extends Fragment
      * Tag for the {@link Log}.
      */
     private static final String TAG = FragmentDecoder.class.getName();
-    public static boolean accessGranted = true;
     private final CameraCaptureSession.CaptureCallback mCaptureCallback =
             new CameraCaptureSession.CaptureCallback() {
                 private void process(CaptureResult result) {
@@ -117,6 +119,7 @@ public class FragmentDecoder extends Fragment
             };
     private RelativeLayout layout;
     private QRCodeReader mQrReader;
+    private Map<DecodeHintType, Object> decodeHintTypeObjectHashtable;
     private String mCameraId;
     private AutoFitTextureView mTextureView;
     private CameraCaptureSession mCaptureSession;
@@ -154,48 +157,6 @@ public class FragmentDecoder extends Fragment
         }
 
     };
-    private int count;
-    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
-            new ImageReader.OnImageAvailableListener() {
-
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Log.e(TAG, "onImageAvailable: " + count++);
-                    Image img = null;
-                    img = reader.acquireLatestImage();
-                    Result rawResult = null;
-                    try {
-                        if (img == null) throw new NullPointerException("cannot be null");
-                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
-                        byte[] data = new byte[buffer.remaining()];
-                        buffer.get(data);
-                        int width = img.getWidth();
-                        int height = img.getHeight();
-                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
-                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-                        rawResult = mQrReader.decode(bitmap);
-                        onQRCodeRead(rawResult.getText());
-                    } catch (ReaderException ignored) {
-                        Log.e(TAG, "Reader shows an exception! ", ignored);
-                        /* Ignored */
-                    } catch (NullPointerException ex) {
-                        ex.printStackTrace();
-                    } finally {
-                        mQrReader.reset();
-                        Log.e(TAG, "in the finally! ------------");
-                        if (img != null)
-                            img.close();
-
-                    }
-                    if (rawResult != null) {
-                        Log.e(TAG, "Decoding successful!");
-                    } else {
-                        Log.d(TAG, "No QR code found…");
-                    }
-                }
-
-            };
     /**
      * {@link TextureView.SurfaceTextureListener} handles several lifecycle events on a
      * {@link TextureView}.
@@ -222,6 +183,48 @@ public class FragmentDecoder extends Fragment
                 @Override
                 public void onSurfaceTextureUpdated(SurfaceTexture texture) {
 
+                }
+
+            };
+    private int count;
+    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
+            new ImageReader.OnImageAvailableListener() {
+
+                @Override
+                public void onImageAvailable(ImageReader reader) {
+                    Log.e(TAG, "onImageAvailable: " + count++);
+                    Image img = null;
+                    img = reader.acquireLatestImage();
+                    Result rawResult = null;
+                    try {
+                        if (img == null) throw new NullPointerException("cannot be null");
+                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
+                        byte[] data = new byte[buffer.remaining()];
+                        buffer.get(data);
+                        int width = img.getWidth();
+                        int height = img.getHeight();
+                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
+                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
+                        onQRCodeRead(rawResult);
+                    } catch (ReaderException ignored) {
+                        Log.e(TAG, "Reader shows an exception! ", ignored);
+                        /* Ignored */
+                    } catch (NullPointerException ex) {
+                        ex.printStackTrace();
+                    } finally {
+                        mQrReader.reset();
+                        Log.e(TAG, "in the finally! ------------");
+                        if (img != null)
+                            img.close();
+
+                    }
+                    if (rawResult != null) {
+                        Log.e(TAG, "Decoding successful!");
+                    } else {
+                        Log.d(TAG, "No QR code found…");
+                    }
                 }
 
             };
@@ -266,6 +269,10 @@ public class FragmentDecoder extends Fragment
 
         View rootView = inflater.inflate(R.layout.fragment_decoder, container, false);
         mQrReader = new QRCodeReader();
+        decodeHintTypeObjectHashtable = new Hashtable<>();
+        //decodeHintTypeObjectHashtable.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
+        decodeHintTypeObjectHashtable.put(DecodeHintType.CHARACTER_SET, "UTF-8");
+
 
         mTextureView = new AutoFitTextureView(getActivity());
         layout = (RelativeLayout) rootView.findViewById(R.id.fragment_decoder_layout);
@@ -284,7 +291,7 @@ public class FragmentDecoder extends Fragment
     @Override
     public void onResume() {
         super.onResume();
-        accessGranted = true;
+
         // When the screen is turned off and turned back on, the SurfaceTexture is already
         // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
         // a camera and start preview from here (otherwise, we wait until the surface is ready in
@@ -364,15 +371,10 @@ public class FragmentDecoder extends Fragment
         configureTransform(width, height);
         CameraManager manager = (CameraManager) getActivity().getSystemService(getActivity().CAMERA_SERVICE);
         try {
-
-            int permissionCheck = ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA);
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
-
-            if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-                manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
-            }
+            manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -532,14 +534,17 @@ public class FragmentDecoder extends Fragment
     }
 
 
-    public void onQRCodeRead(final String text) {
-        if (accessGranted) {
-            accessGranted = false;
-            Intent intent;
-            intent = new Intent(getActivity(), ResultActivity.class);
-            intent.putExtra("text", text);
-            startActivity(intent);
-        }
+    public void onQRCodeRead(final Result result) {
+        ResultPoint[] resultPoints = result.getResultPoints();
+        ResultPoint topLeft = resultPoints[0];
+        ResultPoint topRight = resultPoints[1];
+        ResultPoint bottomRight = resultPoints[2];
+        Log.d("resultPoints", "0: " + topLeft);
+        Log.d("resultPoints", "1: " + topRight);
+        Log.d("resultPoints", "1: " + bottomRight);
+        String text = result.getText();
+        Toast.makeText(getActivity(), text, Toast.LENGTH_SHORT).show();
+
     }
 
     public int getStatusBarHeight() {

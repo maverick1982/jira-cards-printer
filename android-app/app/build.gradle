@@ -17,6 +17,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    useLibrary  'org.apache.http.legacy'
 }
 
 dependencies {
@@ -27,4 +28,5 @@ dependencies {
     compile 'com.android.support:support-v13:23.0.1'
     compile 'com.google.zxing:core:3.2.0' //QRCode scanner
     compile 'com.facebook.rebound:rebound:0.3.8' //spring animation
+    compile group: 'org.apache.httpcomponents' , name: 'httpclient-android' , version: '4.3.5'
 }

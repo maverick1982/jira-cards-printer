@@ -7,6 +7,7 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -35,6 +36,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
+import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
@@ -49,6 +52,16 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import com.commons.SettingsActivity;
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
+import com.google.zxing.NotFoundException;
+import com.google.zxing.ReaderException;
+import com.google.zxing.Result;
+import com.google.zxing.ResultPoint;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.qrcode.QRCodeReader;
+import com.jira.IssueDetails;
 import com.jira.JiraInformationDownload;
 
 import net.sourceforge.zbar.Config;
@@ -107,6 +120,7 @@ public class FragmentDecoder extends Fragment
     private static final int sImageFormat = ImageFormat.YUV_420_888;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private static final String FRAGMENT_DIALOG = "dialog";
+
     /**
      * Tag for the {@link Log}.
      */
@@ -172,11 +186,11 @@ public class FragmentDecoder extends Fragment
 
     };
     private int count;
-    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
     private int backgroundColor;
     private boolean backgroundColorNeedRefresh = true;
     private long lastRefresh;
     private JiraInformationDownload jiraInformationDownload;
+    private Map<String, AsyncTask<String, Void, IssueDetails>> cache = new HashMap<>();
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
             new ImageReader.OnImageAvailableListener() {
 
@@ -393,9 +407,12 @@ public class FragmentDecoder extends Fragment
                              Bundle savedInstanceState) {
 
         View rootView = inflater.inflate(R.layout.fragment_decoder, container, false);
-        String username = getActivity().getBaseContext().getString(R.string.username);
-        String password = getActivity().getBaseContext().getString(R.string.password);
-        jiraInformationDownload = new JiraInformationDownload(username, password);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
+        String hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
+        String username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
+        String password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
+
+        jiraInformationDownload = new JiraInformationDownload(hostname,username, password);
         imageScanner = new ImageScanner();
         imageScanner.setConfig(0, Config.X_DENSITY, 3);
         imageScanner.setConfig(0, Config.Y_DENSITY, 3);
@@ -662,10 +679,32 @@ public class FragmentDecoder extends Fragment
     }
 
 
-    public void onQRCodeRead(final SymbolSet symbolSet, Canvas canvas, Rect cropRect) throws ExecutionException, InterruptedException {
+    private void configureTransform(int viewWidth, int viewHeight) {
+
+       /* if (mTextureView == null || mPreviewSize == null) return;
+
+        int rotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+        Matrix matrix = new Matrix();
+        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+        RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
+        float centerX = viewRect.centerX();
+        float centerY = viewRect.centerY();
+        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+            float scale = Math.max(
+                    (float) viewHeight / mPreviewSize.getHeight(),
+                    (float) viewWidth / mPreviewSize.getWidth());
+            matrix.postScale(scale, scale, centerX, centerY);
+            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+        }
+        mTextureView.setTransform(matrix);*/
+    }
+
+    public void onQRCodeRead(final Result result, Image image) throws NotFoundException, ExecutionException, InterruptedException {
         Symbol result = symbolSet.iterator().next();
         String key = result.getData();
-        AsyncTask<String, Void, String> asyncTask = cache.get(key);
+        AsyncTask<String, Void, IssueDetails> asyncTask = cache.get(key);
         if (asyncTask == null) {
             cache.clear();
             asyncTask = jiraInformationDownload.execute(key);

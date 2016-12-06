@@ -10,5 +10,5 @@ import org.json.JSONException;
  */
 public interface JiraServerConnection {
 
-    IssueDetails getIssueDetails(String issueID) throws JSONException;
+    IssueDetails getIssueDetails(String issueID) throws JSONException, JiraConnectionException;
 }

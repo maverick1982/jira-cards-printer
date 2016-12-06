@@ -37,8 +37,11 @@ import com.commons.SettingsActivity;
  */
 public class MainActivity extends AppCompatActivity {
 
+    public static final String TAG = "MainActivity";
+
     public static Point screenParametersPoint = new Point();
     public RelativeLayout layout;
+    private FragmentDecoder fragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,7 +52,8 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             FragmentTransaction fragmentTransaction = getFragmentManager().beginTransaction();
             fragmentTransaction.addToBackStack(null);
-            fragmentTransaction.add(layout.getId(), new FragmentDecoder());
+            fragment = new FragmentDecoder();
+            fragmentTransaction.add(layout.getId(), fragment);
             fragmentTransaction.commit();
         }
     }
@@ -70,7 +74,6 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
-
         }
     }
 }

@@ -4,6 +4,11 @@
 
     <header
         android:fragment="com.commons.SettingsActivity$GeneralPreferenceFragment"
-        android:icon="@drawable/ic_info_black_24dp"
+        android:icon="@drawable/ic_notifications_black_24dp"
         android:title="@string/pref_header_general" />
+
+    <header
+        android:fragment="com.commons.SettingsActivity$InfoFragment"
+        android:icon="@drawable/ic_info_black_24dp"
+        android:title="@string/pref_header_info" />
 </preference-headers>

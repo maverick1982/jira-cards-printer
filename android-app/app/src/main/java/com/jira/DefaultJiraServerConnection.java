@@ -2,6 +2,10 @@ package com.jira;
 
 
 import android.util.Base64;
+import android.util.Log;
+
+import com.jira.exception.JiraConnectionException;
+import com.qrcodereader.MainActivity;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -53,10 +57,12 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
 
 
     @Override
-    public IssueDetails getIssueDetails(String issueID) {
+    public IssueDetails getIssueDetails(String issueID) throws JiraConnectionException {
         IssueDetails issueDetails = new IssueDetails();
 
         String request = doRequest("/rest/api/2/issue/" + issueID + "?fields=status,assignee,customfield_10610");
+        if (request == null)
+            throw new JiraConnectionException(new Throwable("Request URL null! -> Invalid Host Name"));
 
         JSONObject jsonStatus;
         try {
@@ -96,7 +102,7 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
             }
             return total.toString();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.w(MainActivity.TAG, e.getMessage());
         }
         return null;
     }

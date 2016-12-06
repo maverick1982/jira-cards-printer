@@ -7,6 +7,7 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -34,6 +35,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.content.ContextCompat;
@@ -48,6 +50,7 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import com.commons.SettingsActivity;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.DecodeHintType;
 import com.google.zxing.NotFoundException;
@@ -632,13 +635,15 @@ public class FragmentDecoder extends Fragment
     }
 
     public void onQRCodeRead(final Result result, Image image) throws NotFoundException, ExecutionException, InterruptedException {
-        String username = getActivity().getBaseContext().getString(R.string.username);
-        String password = getActivity().getBaseContext().getString(R.string.password);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
+        String hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
+        String username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
+        String password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
         String key = result.getText();
         AsyncTask<String, Void, String> asyncTask = cache.get(key);
         if (asyncTask == null) {
             cache.clear();
-            JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(username, password);
+            JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(hostname, username, password);
             asyncTask = jiraInformationDownload.execute(key);
             cache.put(key, asyncTask);
         }

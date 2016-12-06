@@ -4,30 +4,5 @@
         android:maxLines="1"
         android:singleLine="true"
         android:title="Sviluppatori:"/>
-    <Preference
-    android:capitalize="words"
-    android:maxLines="1"
-    android:singleLine="true"
-    android:title="         Pasquale"/>
-    <Preference
-        android:capitalize="words"
-        android:maxLines="1"
-        android:singleLine="true"
-        android:title="         Giulio"/>
-    <Preference
-        android:capitalize="words"
-        android:maxLines="1"
-        android:singleLine="true"
-        android:title="         Marco"/>
-    <Preference
-        android:capitalize="words"
-        android:maxLines="1"
-        android:singleLine="true"
-        android:title="         Francesco"/>
-    <Preference
-        android:capitalize="words"
-        android:maxLines="1"
-        android:singleLine="true"
-        android:title="         Fabrizio"/>
 
 </PreferenceScreen>

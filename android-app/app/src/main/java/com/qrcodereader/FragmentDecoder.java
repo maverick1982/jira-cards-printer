@@ -59,6 +59,7 @@ import com.google.zxing.Result;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.qrcode.QRCodeReader;
+import com.jira.IssueDetails;
 import com.jira.JiraInformationDownload;
 
 import java.nio.ByteBuffer;
@@ -107,10 +108,12 @@ import static android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE;
 
 public class FragmentDecoder extends Fragment
         implements FragmentCompat.OnRequestPermissionsResultCallback {
+
     public static final int PREVIEW_SCALE_FACTOR = 10;
     private static final int sImageFormat = ImageFormat.YUV_420_888;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private static final String FRAGMENT_DIALOG = "dialog";
+
     /**
      * Tag for the {@link Log}.
      */
@@ -206,7 +209,7 @@ public class FragmentDecoder extends Fragment
 
             };
     private int count;
-    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
+    private Map<String, AsyncTask<String, Void, IssueDetails>> cache = new HashMap<>();
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
             new ImageReader.OnImageAvailableListener() {
 
@@ -675,7 +678,7 @@ public class FragmentDecoder extends Fragment
         String username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
         String password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
         String key = result.getText();
-        AsyncTask<String, Void, String> asyncTask = cache.get(key);
+        AsyncTask<String, Void, IssueDetails> asyncTask = cache.get(key);
         if (asyncTask == null) {
             cache.clear();
             JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(hostname, username, password);
@@ -732,11 +735,12 @@ public class FragmentDecoder extends Fragment
 
             String text = "loading " + key;
             if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
-                String s = asyncTask.get();
+                IssueDetails s = asyncTask.get();
                 if (s == null) {
                     text = "N/A";
                 } else {
-                    text = s;
+//                    TODO: riempitelocomevolete
+                    text = s.getStatus();
                 }
             }
 

@@ -1,10 +1,7 @@
 package com.jira;
 
-import android.content.SharedPreferences;
 import android.os.AsyncTask;
-import android.preference.PreferenceManager;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.jira.data.JiraUser;
 import com.jira.exception.JiraConnectionException;
@@ -16,7 +13,7 @@ import org.json.JSONException;
  * Created by focchioni on 12/5/2016.
  */
 
-public class JiraInformationDownload extends AsyncTask<String, Void, String> {
+public class JiraInformationDownload extends AsyncTask<String, Void, IssueDetails> {
 
     private final String hostname;
     private final String username;
@@ -29,13 +26,13 @@ public class JiraInformationDownload extends AsyncTask<String, Void, String> {
     }
 
     @Override
-    protected String doInBackground(String... strings) {
+    protected IssueDetails doInBackground(String... strings) {
         try {
             String issueId = strings[0];
             JiraUser user = new JiraUser(username, password);
             JiraServerConnection connection = new DefaultJiraServerConnection("https://" + hostname, user.getName(), user.getPassword());
-            IssueDetails issueDetails = connection.getIssueDetails(issueId);
-            return issueDetails.getStatus()+"\n"+issueDetails.getAssignee()+"\n"+issueDetails.getTester();
+            connection.getIssueDetails(issueId);
+            return connection.getIssueDetails(issueId);
         } catch (JiraConnectionException e) {
             Log.w(MainActivity.TAG, e.getMessage());
         } catch (JSONException e) {

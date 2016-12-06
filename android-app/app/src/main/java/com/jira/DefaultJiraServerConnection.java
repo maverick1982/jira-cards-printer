@@ -2,6 +2,7 @@ package com.jira;
 
 
 import android.util.Base64;
+import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -96,7 +97,7 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
             }
             return total.toString();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("Jira connection", e.getMessage(), e);
         }
         return null;
     }

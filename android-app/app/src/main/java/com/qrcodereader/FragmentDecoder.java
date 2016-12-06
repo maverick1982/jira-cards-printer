@@ -173,58 +173,6 @@ public class FragmentDecoder extends Fragment
         }
 
     };
-    private int count;
-    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
-    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
-            new ImageReader.OnImageAvailableListener() {
-
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image img = null;
-                    img = reader.acquireLatestImage();
-                    Result rawResult = null;
-                    try {
-                        if (img == null) throw new NullPointerException("cannot be null");
-                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
-                        byte[] data = new byte[buffer.remaining()];
-                        buffer.get(data);
-                        int width = img.getWidth();
-                        int height = img.getHeight();
-                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
-                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
-                        onQRCodeRead(rawResult, img);
-                        count = 0;
-                    } catch (ReaderException ignored) {
-                        if (count > 8) {
-                            cache.clear();
-                            Canvas canvas = mOverlayView.lockCanvas();
-                            try {
-                                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-                            } finally {
-                                mOverlayView.unlockCanvasAndPost(canvas);
-                            }
-
-                        }
-                        count++;
-                        /* Ignored */
-                    } catch (NullPointerException ex) {
-                        ex.printStackTrace();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    } finally {
-
-                        mQrReader.reset();
-                        if (img != null)
-                            img.close();
-
-                    }
-                }
-
-            };
     /**
      * {@link TextureView.SurfaceTextureListener} handles several lifecycle events on a
      * {@link TextureView}.
@@ -251,6 +199,57 @@ public class FragmentDecoder extends Fragment
                 @Override
                 public void onSurfaceTextureUpdated(SurfaceTexture texture) {
 
+                }
+
+            };
+    private int count;
+    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
+    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
+            new ImageReader.OnImageAvailableListener() {
+
+                @Override
+                public void onImageAvailable(ImageReader reader) {
+                    Image img = null;
+                    img = reader.acquireLatestImage();
+                    Result rawResult = null;
+                    try {
+                        if (img == null) throw new NullPointerException("cannot be null");
+                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
+                        byte[] data = new byte[buffer.remaining()];
+                        buffer.get(data);
+                        int width = img.getWidth();
+                        int height = img.getHeight();
+                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
+                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
+                        onQRCodeRead(rawResult, img);
+                        count = 0;
+                    } catch (ReaderException ignored) {
+                        if (count > 8) {
+                            Canvas canvas = mOverlayView.lockCanvas();
+                            try {
+                                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                            } finally {
+                                mOverlayView.unlockCanvasAndPost(canvas);
+                            }
+
+                        }
+                        count++;
+                        /* Ignored */
+                    } catch (NullPointerException ex) {
+                        ex.printStackTrace();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    } finally {
+
+                        mQrReader.reset();
+                        if (img != null)
+                            img.close();
+
+                    }
                 }
 
             };
@@ -344,6 +343,42 @@ public class FragmentDecoder extends Fragment
         centroid[1] = centroid[1] / totalPoints;
 
         return centroid;
+    }
+
+    public static float calcRotationAngleInDegrees(PointF centerPt, PointF targetPt) {
+        // calculate the angle theta from the deltaY and deltaX values
+        // (atan2 returns radians values from [-PI,PI])
+        // 0 currently points EAST.
+        // NOTE: By preserving Y and X param order to atan2,  we are expecting
+        // a CLOCKWISE angle direction.
+        double theta = Math.atan2(targetPt.y - centerPt.y, targetPt.x - centerPt.x);
+
+        // rotate the theta angle clockwise by 90 degrees
+        // (this makes 0 point NORTH)
+        // NOTE: adding to an angle rotates it clockwise.
+        // subtracting would rotate it counter-clockwise
+//        theta += Math.PI/2.0;
+
+        // convert from radians to degrees
+        // this will give you an angle from [0->270],[-180,0]
+        double angle = Math.toDegrees(theta);
+
+        // convert to positive range [0-360)
+        // since we want to prevent negative angles, adjust them now.
+        // we can assume that atan2 will not return a negative value
+        // greater than one partial rotation
+        if (angle < 0) {
+            angle += 360;
+        }
+
+        return (float) angle;
+    }
+
+    public static float calcDistance(PointF pt1, PointF pt2) {
+        float deltaX = pt1.x - pt2.x;
+        float deltay = pt1.y - pt2.y;
+
+        return (float) Math.sqrt(deltaX * deltaX + deltay * deltay);
     }
 
     @Override
@@ -686,8 +721,10 @@ public class FragmentDecoder extends Fragment
             canvas.drawPath(wallpath, paint);
             Paint foreground = new Paint();
             foreground.setColor(Color.BLACK);
-            float textSize = vy / 2;
+            float basePointsDistance = calcDistance(p0, p3);
+            float textSize = basePointsDistance / 2;
             foreground.setTextSize(textSize);
+
             String text = "loading " + key;
             if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
                 String s = asyncTask.get();
@@ -695,23 +732,30 @@ public class FragmentDecoder extends Fragment
                     text = "N/A";
                 } else {
                     text = s;
-
                 }
             }
-            String[] split = text.split("\n");
-            for (int i = 0; i < split.length; i++) {
-                drawString(canvas, p0, p1, foreground, split[i], i, textSize, (int) dx);
-            }
+
+            PointF q0 = new PointF(0, basePointsDistance);
+            PointF q1 = new PointF(0, 0);
+            PointF q2 = new PointF(basePointsDistance, 0);
+            PointF q3 = new PointF(basePointsDistance, basePointsDistance);
+            Matrix matrix = MatrixTransform.getMatrix(new PointF[]{q0, q1, q2, q3}, new PointF[]{p0, p1, p2, p3});
+
+            canvas.setMatrix(matrix);
+
+            drawString(canvas, foreground, text, (int) basePointsDistance);
 
         } finally {
             mOverlayView.unlockCanvasAndPost(canvas);
         }
     }
 
-    private void drawString(Canvas canvas, PointF p0, PointF p1, Paint foreground, String text, int i, float textSize, int dx) {
-        float v1 = foreground.measureText(text);
-        canvas.drawText(text, p0.x + (dx / 2) - (v1 / 2), p1.y + (i * textSize), foreground);//// TODO:  getRobe(result)
+    private void drawString(Canvas canvas, Paint paint, String text, int basePointsDistance) {
+        float textWidth = paint.measureText(text);
+        float textHeight = paint.getTextSize();
+        canvas.drawText(text, (basePointsDistance - textWidth) / 2, (basePointsDistance - textHeight) / 2 + textHeight, paint);
     }
+
 
 //    private String getRobe(Result result) {
 //        JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(username, password);

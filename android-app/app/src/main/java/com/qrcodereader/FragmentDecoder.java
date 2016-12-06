@@ -14,7 +14,6 @@ import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
@@ -24,6 +23,7 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
@@ -34,12 +34,13 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.annotation.NonNull;
+import android.os.SystemClock;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -48,15 +49,12 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-import com.google.zxing.BinaryBitmap;
-import com.google.zxing.DecodeHintType;
-import com.google.zxing.NotFoundException;
-import com.google.zxing.ReaderException;
-import com.google.zxing.Result;
-import com.google.zxing.ResultPoint;
-import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.qrcode.QRCodeReader;
 import com.jira.JiraInformationDownload;
+
+import net.sourceforge.zbar.Config;
+import net.sourceforge.zbar.ImageScanner;
+import net.sourceforge.zbar.Symbol;
+import net.sourceforge.zbar.SymbolSet;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -104,7 +102,8 @@ import static android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE;
 
 public class FragmentDecoder extends Fragment
         implements FragmentCompat.OnRequestPermissionsResultCallback {
-    public static final int PREVIEW_SCALE_FACTOR = 10;
+    public static final int PREVIEW_SCALE_FACTOR = 4;
+    public static final int MISSED_FRAMES_LIMIT = 20;
     private static final int sImageFormat = ImageFormat.YUV_420_888;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private static final String FRAGMENT_DIALOG = "dialog";
@@ -131,8 +130,7 @@ public class FragmentDecoder extends Fragment
 
             };
     private FrameLayout layout;
-    private QRCodeReader mQrReader;
-    private Map<DecodeHintType, Object> decodeHintTypeObjectHashtable;
+    private ImageScanner imageScanner;
     private String mCameraId;
     private AutoFitTextureView mTextureView;
     private AutoFitTextureView mOverlayView;
@@ -173,6 +171,61 @@ public class FragmentDecoder extends Fragment
         }
 
     };
+    private int count;
+    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
+    private int backgroundColor;
+    private boolean backgroundColorNeedRefresh = true;
+    private long lastRefresh;
+    private JiraInformationDownload jiraInformationDownload;
+    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
+            new ImageReader.OnImageAvailableListener() {
+
+                @Override
+                public void onImageAvailable(ImageReader reader) {
+                    Image img = reader.acquireLatestImage();
+                    try {
+                        if (img == null) {
+                            return;
+                        }
+                        byte[] yData = getByteArray(img, 0);
+
+                        int width = img.getWidth();
+                        int height = img.getHeight();
+                        net.sourceforge.zbar.Image image = new net.sourceforge.zbar.Image(width, height, "Y800");
+                        image.setData(yData);
+                        int result = imageScanner.scanImage(image);
+                        Canvas canvas = mOverlayView.lockCanvas();
+                        try {
+                            if (result != 0) {
+                                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                                SymbolSet results = imageScanner.getResults();
+                                onQRCodeRead(results, canvas, new Rect(0, 0, img.getWidth(), img.getHeight()));
+                                count = 0;
+                            } else {
+                                if (count > MISSED_FRAMES_LIMIT) {
+                                    canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                                }
+                                count++;
+                            }
+                        } finally {
+                            mOverlayView.unlockCanvasAndPost(canvas);
+                        }
+                        //rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
+                        //onQRCodeRead(rawResult, img);
+
+
+                        /* Ignored */
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    } finally {
+                        if (img != null) {
+                            img.close();
+                        }
+
+                    }
+                }
+
+            };
     /**
      * {@link TextureView.SurfaceTextureListener} handles several lifecycle events on a
      * {@link TextureView}.
@@ -187,69 +240,16 @@ public class FragmentDecoder extends Fragment
 
                 @Override
                 public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
-                    configureTransform(width, height);
                 }
 
                 @Override
                 public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
-
                     return true;
                 }
 
                 @Override
                 public void onSurfaceTextureUpdated(SurfaceTexture texture) {
 
-                }
-
-            };
-    private int count;
-    private Map<String, AsyncTask<String, Void, String>> cache = new HashMap<>();
-    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
-            new ImageReader.OnImageAvailableListener() {
-
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image img = null;
-                    img = reader.acquireLatestImage();
-                    Result rawResult = null;
-                    try {
-                        if (img == null) throw new NullPointerException("cannot be null");
-                        ByteBuffer buffer = img.getPlanes()[0].getBuffer();
-                        byte[] data = new byte[buffer.remaining()];
-                        buffer.get(data);
-                        int width = img.getWidth();
-                        int height = img.getHeight();
-                        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height);
-                        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-                        rawResult = mQrReader.decode(bitmap, decodeHintTypeObjectHashtable);
-                        onQRCodeRead(rawResult, img);
-                        count = 0;
-                    } catch (ReaderException ignored) {
-                        if (count > 8) {
-                            Canvas canvas = mOverlayView.lockCanvas();
-                            try {
-                                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-                            } finally {
-                                mOverlayView.unlockCanvasAndPost(canvas);
-                            }
-
-                        }
-                        count++;
-                        /* Ignored */
-                    } catch (NullPointerException ex) {
-                        ex.printStackTrace();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    } finally {
-
-                        mQrReader.reset();
-                        if (img != null)
-                            img.close();
-
-                    }
                 }
 
             };
@@ -381,19 +381,42 @@ public class FragmentDecoder extends Fragment
         return (float) Math.sqrt(deltaX * deltaX + deltay * deltay);
     }
 
+    private byte[] getByteArray(Image img, int i) {
+        ByteBuffer buffer = img.getPlanes()[i].getBuffer();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        return bytes;
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
 
         View rootView = inflater.inflate(R.layout.fragment_decoder, container, false);
-        mQrReader = new QRCodeReader();
-        decodeHintTypeObjectHashtable = new Hashtable<>();
-        //decodeHintTypeObjectHashtable.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
-        decodeHintTypeObjectHashtable.put(DecodeHintType.CHARACTER_SET, "UTF-8");
-
+        String username = getActivity().getBaseContext().getString(R.string.username);
+        String password = getActivity().getBaseContext().getString(R.string.password);
+        jiraInformationDownload = new JiraInformationDownload(username, password);
+        imageScanner = new ImageScanner();
+        imageScanner.setConfig(0, Config.X_DENSITY, 3);
+        imageScanner.setConfig(0, Config.Y_DENSITY, 3);
+        imageScanner.setConfig(0, Config.ENABLE, 0); //Disable all the Symbols
+        imageScanner.setConfig(Symbol.QRCODE, Config.ENABLE, 1);
 
         mTextureView = new AutoFitTextureView(getActivity());
         mOverlayView = new AutoFitTextureView(getActivity());
+        mOverlayView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_AUTO);
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+                try {
+                    mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                }
+                return false;
+            }
+        });
         mTextureView.setZ(0);
         mOverlayView.setZ(1);
         mOverlayView.setOpaque(false);
@@ -465,9 +488,13 @@ public class FragmentDecoder extends Fragment
                 Size largest = Collections.max(outputSizes, new CompareSizesByArea());
 
                 mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height, largest);
-                Log.e(TAG, "WIDTH: " + mPreviewSize.getWidth() + " HEIGHT: " + mPreviewSize.getHeight());
+
                 // We fit the aspect ratio of TextureView to the size of preview we picked.
-                mImageReader = ImageReader.newInstance(mPreviewSize.getWidth() / PREVIEW_SCALE_FACTOR, mPreviewSize.getHeight() / PREVIEW_SCALE_FACTOR, sImageFormat, 2);
+
+                float ratio = mPreviewSize.getWidth() / (float) mPreviewSize.getHeight();
+                int w = 640;
+                int h = (int) (w / ratio);
+                mImageReader = ImageReader.newInstance(w, h, sImageFormat, 2);
                 mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mBackgroundHandler);
                 // Danger, W.R.! Attempting to use too large a preview size could exceed the camera
                 // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
@@ -501,7 +528,6 @@ public class FragmentDecoder extends Fragment
             return;
         }
         setUpCameraOutputs(width, height);
-        configureTransform(width, height);
         CameraManager manager = (CameraManager) getActivity().getSystemService(getActivity().CAMERA_SERVICE);
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
@@ -635,119 +661,71 @@ public class FragmentDecoder extends Fragment
         }
     }
 
-    /**
-     * Configures the necessary {@link android.graphics.Matrix} transformation to `mTextureView`.
-     * This method should be called after the camera preview size is determined in
-     * setUpCameraOutputs and also the size of `mTextureView` is fixed.
-     *
-     * @param viewWidth  The width of `mTextureView`
-     * @param viewHeight The height of `mTextureView`
-     */
 
-    private void configureTransform(int viewWidth, int viewHeight) {
-
-       /* if (mTextureView == null || mPreviewSize == null) return;
-
-        int rotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
-        Matrix matrix = new Matrix();
-        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
-        RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
-        float centerX = viewRect.centerX();
-        float centerY = viewRect.centerY();
-        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
-            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
-            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
-            float scale = Math.max(
-                    (float) viewHeight / mPreviewSize.getHeight(),
-                    (float) viewWidth / mPreviewSize.getWidth());
-            matrix.postScale(scale, scale, centerX, centerY);
-            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
-        }
-        mTextureView.setTransform(matrix);*/
-    }
-
-    public void onQRCodeRead(final Result result, Image image) throws NotFoundException, ExecutionException, InterruptedException {
-        String username = getActivity().getBaseContext().getString(R.string.username);
-        String password = getActivity().getBaseContext().getString(R.string.password);
-        String key = result.getText();
+    public void onQRCodeRead(final SymbolSet symbolSet, Canvas canvas, Rect cropRect) throws ExecutionException, InterruptedException {
+        Symbol result = symbolSet.iterator().next();
+        String key = result.getData();
         AsyncTask<String, Void, String> asyncTask = cache.get(key);
         if (asyncTask == null) {
             cache.clear();
-            JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(username, password);
             asyncTask = jiraInformationDownload.execute(key);
             cache.put(key, asyncTask);
         }
-        ResultPoint[] resultPoints = result.getResultPoints();
         Matrix transform = new Matrix();
-        Canvas canvas = mOverlayView.lockCanvas();
-        try {
-            Rect clipBounds = image.getCropRect();
+        transform.postRotate(90);
+        transform.postTranslate(cropRect.height(), 0);
+        float sx = mOverlayView.getRatioWidth() / (float) cropRect.height();
+        float sy = mOverlayView.getHeight() / (float) cropRect.width();
+        transform.postScale(sx, sy);
+        PointF p0 = getPointF(result.getLocationPoint(1), transform);
+        PointF p1 = getPointF(result.getLocationPoint(0), transform);
+        PointF p2 = getPointF(result.getLocationPoint(3), transform);
+        PointF p3 = getPointF(result.getLocationPoint(2), transform);
 
-            transform.postRotate(90);
-            transform.postTranslate(clipBounds.height(), 0);
-
-            float sx = mOverlayView.getRatioWidth() / (float) clipBounds.height();
-            float sy = mOverlayView.getHeight() / (float) clipBounds.width();
-            transform.postScale(sx, sy);
-
-
-            PointF p0 = getPointF(resultPoints[0], transform, clipBounds);
-            PointF p1 = getPointF(resultPoints[1], transform, clipBounds);
-            PointF p2 = getPointF(resultPoints[2], transform, clipBounds);
-
-            float dx = p2.x - p1.x;
-            float dy = p2.y - p1.y;
-
-            PointF p3 = new PointF(p0.x + dx, p0.y + dy);
-            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            paint.setStyle(Paint.Style.FILL_AND_STROKE);
-
-            paint.setColor(Color.argb(255, 241, 226, 95));
-            float vx = p0.x - p1.x;
-            float vy = p0.y - p1.y;
-
-            float v = (float) (Math.sqrt(vx * vx + vy * vy) / 1.75);
-            paint.setStrokeWidth(v);
-
-            Path wallpath = new Path();
-            wallpath.reset(); // only needed when reusing this path for a new build
-            wallpath.moveTo(p0.x, p0.y); // used for first point
-            wallpath.lineTo(p1.x, p1.y);
-            wallpath.lineTo(p2.x, p2.y);
-            wallpath.lineTo(p3.x, p3.y);
-            wallpath.lineTo(p0.x, p0.y);
-            wallpath.lineTo(p1.x, p1.y);
-            canvas.drawPath(wallpath, paint);
-            Paint foreground = new Paint();
-            foreground.setColor(Color.BLACK);
-            float basePointsDistance = calcDistance(p0, p3);
-            float textSize = basePointsDistance / 2;
-            foreground.setTextSize(textSize);
-
-            String text = "loading " + key;
-            if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
-                String s = asyncTask.get();
-                if (s == null) {
-                    text = "N/A";
-                } else {
-                    text = s;
-                }
+        if (backgroundColorNeedRefresh) {
+            backgroundColorNeedRefresh = false;
+            lastRefresh = SystemClock.currentThreadTimeMillis();
+            Bitmap bitmap = mTextureView.getBitmap();
+            backgroundColor = bitmap.getPixel((int) p0.x - 100, (int) p0.y - 60);
+            bitmap.recycle();
+        } else {
+            long currentThreadTimeMillis = SystemClock.currentThreadTimeMillis();
+            if (currentThreadTimeMillis - lastRefresh > 500) {
+                backgroundColorNeedRefresh = true;
             }
 
-            PointF q0 = new PointF(0, basePointsDistance);
-            PointF q1 = new PointF(0, 0);
-            PointF q2 = new PointF(basePointsDistance, 0);
-            PointF q3 = new PointF(basePointsDistance, basePointsDistance);
-            Matrix matrix = MatrixTransform.getMatrix(new PointF[]{q0, q1, q2, q3}, new PointF[]{p0, p1, p2, p3});
-
-            canvas.setMatrix(matrix);
-
-            drawString(canvas, foreground, text, (int) basePointsDistance);
-
-        } finally {
-            mOverlayView.unlockCanvasAndPost(canvas);
         }
+
+        float basePointsDistance = calcDistance(p0, p3);
+        Paint foreground = new Paint();
+        foreground.setColor(Color.BLACK);
+
+        float textSize = basePointsDistance / 2;
+        foreground.setTextSize(textSize);
+        String text = "loading " + key;
+        if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
+            String s = asyncTask.get();
+            if (s == null) {
+                text = "N/A";
+            } else {
+                text = s;
+            }
+        }
+        PointF q0 = new PointF(0, basePointsDistance);
+        PointF q1 = new PointF(0, 0);
+        PointF q2 = new PointF(basePointsDistance, 0);
+        PointF q3 = new PointF(basePointsDistance, basePointsDistance);
+        canvas.save();
+        Matrix matrix = MatrixTransform.getMatrix(new PointF[]{q0, q1, q2, q3}, new PointF[]{p0, p1, p2, p3});
+        canvas.setMatrix(matrix);
+        Paint paint = new Paint();
+        paint.setStyle(Paint.Style.FILL_AND_STROKE);
+        paint.setColor(backgroundColor);
+        canvas.drawRect(-basePointsDistance, 0, basePointsDistance * 2, basePointsDistance, paint);
+        drawString(canvas, foreground, text, (int) basePointsDistance);
+        canvas.restore();
+        canvas.drawCircle(p0.x, p0.y, 20, paint);
+
     }
 
     private void drawString(Canvas canvas, Paint paint, String text, int basePointsDistance) {
@@ -756,36 +734,18 @@ public class FragmentDecoder extends Fragment
         canvas.drawText(text, (basePointsDistance - textWidth) / 2, (basePointsDistance - textHeight) / 2 + textHeight, paint);
     }
 
-
-//    private String getRobe(Result result) {
-//        JiraInformationDownload jiraInformationDownload = new JiraInformationDownload(username, password);
-//
-//        AsyncTask<String, Void, String> execute = jiraInformationDownload.execute("MF-10178");
-//        try {
-//            return execute.get();
-//        } catch (InterruptedException | ExecutionException e) {
-//            e.printStackTrace();
-//        }
-//        return "NONEEE";
-////        try {
-////            Toast.makeText(getBaseContext(),execute.get(), Toast.LENGTH_LONG).show();
-////        } catch (InterruptedException | ExecutionException e) {
-////            e.printStackTrace();
-////        }
-//    }
-
-    @NonNull
-    private PointF getPointF(ResultPoint topLeft, Matrix transform, Rect clipBounds) {
+    private PointF getPointF(int[] point, Matrix transform) {
         float[] floats = new float[2];
-        floats[0] = topLeft.getX();
-        floats[1] = topLeft.getY();
+        floats[0] = point[0];
+        floats[1] = point[1];
         transform.mapPoints(floats);
-        Log.d("resultPoints", "rot: " + floats[0] + "," + floats[1]);
+
         float cx = floats[0];
         float cy = floats[1];
-        Log.d("resultPoints", "scaled: " + cx + "," + cy);
+
         return new PointF(cx, cy);
     }
+
 
     public int getStatusBarHeight() {
         Rect rectangle = new Rect();

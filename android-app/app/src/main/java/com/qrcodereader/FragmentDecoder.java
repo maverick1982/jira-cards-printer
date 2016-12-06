@@ -37,7 +37,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
 import android.support.v13.app.FragmentCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
@@ -53,14 +52,6 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.commons.SettingsActivity;
-import com.google.zxing.BinaryBitmap;
-import com.google.zxing.DecodeHintType;
-import com.google.zxing.NotFoundException;
-import com.google.zxing.ReaderException;
-import com.google.zxing.Result;
-import com.google.zxing.ResultPoint;
-import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.qrcode.QRCodeReader;
 import com.jira.IssueDetails;
 import com.jira.JiraInformationDownload;
 
@@ -75,7 +66,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -701,7 +691,7 @@ public class FragmentDecoder extends Fragment
         mTextureView.setTransform(matrix);*/
     }
 
-    public void onQRCodeRead(final Result result, Image image) throws NotFoundException, ExecutionException, InterruptedException {
+    public void onQRCodeRead(final SymbolSet symbolSet, Canvas canvas, Rect cropRect) throws ExecutionException, InterruptedException {
         Symbol result = symbolSet.iterator().next();
         String key = result.getData();
         AsyncTask<String, Void, IssueDetails> asyncTask = cache.get(key);
@@ -741,36 +731,62 @@ public class FragmentDecoder extends Fragment
 
         float textSize = basePointsDistance / 2;
         foreground.setTextSize(textSize);
-        String text = "loading " + key;
-        if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
-            String s = asyncTask.get();
-            if (s == null) {
-                text = "N/A";
-            } else {
-                text = s;
-            }
-        }
+
         PointF q0 = new PointF(0, basePointsDistance);
         PointF q1 = new PointF(0, 0);
         PointF q2 = new PointF(basePointsDistance, 0);
         PointF q3 = new PointF(basePointsDistance, basePointsDistance);
         canvas.save();
         Matrix matrix = MatrixTransform.getMatrix(new PointF[]{q0, q1, q2, q3}, new PointF[]{p0, p1, p2, p3});
-        canvas.setMatrix(matrix);
+        float[] colorPick = new float[]{-basePointsDistance / 2, basePointsDistance / 2};
+        matrix.mapPoints(colorPick);
+
+        if (backgroundColorNeedRefresh) {
+            backgroundColorNeedRefresh = false;
+            lastRefresh = SystemClock.currentThreadTimeMillis();
+            Bitmap bitmap = mTextureView.getBitmap();
+            backgroundColor = bitmap.getPixel((int) colorPick[0], (int) colorPick[1]);
+            bitmap.recycle();
+        } else {
+            long currentThreadTimeMillis = SystemClock.currentThreadTimeMillis();
+            if (currentThreadTimeMillis - lastRefresh > 500) {
+                backgroundColorNeedRefresh = true;
+            }
+
+        }
+
         Paint paint = new Paint();
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
         paint.setColor(backgroundColor);
-        canvas.drawRect(-basePointsDistance, 0, basePointsDistance * 2, basePointsDistance, paint);
-        drawString(canvas, foreground, text, (int) basePointsDistance);
-        canvas.restore();
-        canvas.drawCircle(p0.x, p0.y, 20, paint);
 
+        canvas.setMatrix(matrix);
+        canvas.drawRect(-basePointsDistance, 0, basePointsDistance * 2, basePointsDistance, paint);
+        if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
+            IssueDetails s = asyncTask.get();
+            if (s == null) {
+                drawString(canvas, foreground, "N/A", (int) basePointsDistance, 0);
+            } else {
+                drawString(canvas, foreground, "Status: " + s.getStatus(), (int) basePointsDistance, 0);
+
+                String assignee = s.getAssignee();
+                if (assignee != null) {
+                    drawString(canvas, foreground, "Assignee: " + assignee, (int) basePointsDistance, 1);
+                }
+                String tester = s.getTester();
+                if (tester != null) {
+                    drawString(canvas, foreground, "Tester: " + tester, (int) basePointsDistance, 2);
+                }
+            }
+        } else {
+            drawString(canvas, foreground, "loading " + key, (int) basePointsDistance, 0);
+        }
+        canvas.restore();
     }
 
-    private void drawString(Canvas canvas, Paint paint, String text, int basePointsDistance) {
+    private void drawString(Canvas canvas, Paint paint, String text, int basePointsDistance, int row) {
         float textWidth = paint.measureText(text);
         float textHeight = paint.getTextSize();
-        canvas.drawText(text, (basePointsDistance - textWidth) / 2, (basePointsDistance - textHeight) / 2 + textHeight, paint);
+        canvas.drawText(text, (basePointsDistance - textWidth) / 2, (basePointsDistance - textHeight) / 2 + (textHeight * (row)), paint);
     }
 
     private PointF getPointF(int[] point, Matrix transform) {

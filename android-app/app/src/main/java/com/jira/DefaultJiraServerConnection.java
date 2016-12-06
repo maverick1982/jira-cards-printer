@@ -29,16 +29,21 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
         this.password = password;
     }
 
-    private String getIssueStatus(JSONObject jsonStatus) throws JSONException {
-        return ((JSONObject) ((JSONObject) jsonStatus.get("fields")).get("status")).getString("name");
+    private String getIssueStatus(JSONObject fields) throws JSONException {
+        return ((JSONObject) fields.get("status")).getString("name");
     }
 
-    private String getIssueAssignee(JSONObject jsonStatus) throws JSONException {
-        return ((JSONObject) ((JSONObject) jsonStatus.get("fields")).get("assignee")).getString("displayName");
+    private String getIssueAssignee(JSONObject fields) throws JSONException {
+        Object issueAssignee = fields.get("assignee");
+
+        if (issueAssignee == JSONObject.NULL) {
+            return null;
+        }
+        return ((JSONObject) issueAssignee).getString("displayName");
     }
 
-    private String getIssueTester(JSONObject jsonStatus) throws JSONException {
-        Object issueTester = ((JSONObject) jsonStatus.get("fields")).get("customfield_10610");
+    private String getIssueTester(JSONObject fields) throws JSONException {
+        Object issueTester = fields.get("customfield_10610");
         if (issueTester == JSONObject.NULL) {
             return null;
         }
@@ -56,9 +61,10 @@ public class DefaultJiraServerConnection implements JiraServerConnection {
         JSONObject jsonStatus;
         try {
             jsonStatus = new JSONObject(request);
-            issueDetails.setStatus(getIssueStatus(jsonStatus));
-            issueDetails.setAssignee(getIssueAssignee(jsonStatus));
-            issueDetails.setTester(getIssueTester(jsonStatus));
+            JSONObject fields = (JSONObject) jsonStatus.get("fields");
+            issueDetails.setStatus(getIssueStatus(fields));
+            issueDetails.setAssignee(getIssueAssignee(fields));
+            issueDetails.setTester(getIssueTester(fields));
         } catch (JSONException e) {
             e.printStackTrace();
         }

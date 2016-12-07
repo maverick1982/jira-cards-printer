@@ -401,7 +401,9 @@ public class FragmentDecoder extends Fragment
         imageScanner.setConfig(0, Config.UNCERTAINTY, 1);
 
         mTextureView = new AutoFitTextureView(getActivity());
+        mTextureView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         mOverlayView = new AutoFitTextureView(getActivity());
+        mOverlayView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         mOverlayView.setOnTouchListener(new View.OnTouchListener() {
 
             boolean activeScan = true;

@@ -13,14 +13,12 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
-import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -150,7 +148,6 @@ public class FragmentDecoder extends Fragment
                 }
 
             };
-    private FrameLayout layout;
     private ImageScanner imageScanner;
     private String mCameraId;
     private AutoFitTextureView mTextureView;
@@ -198,26 +195,24 @@ public class FragmentDecoder extends Fragment
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
             new ImageReader.OnImageAvailableListener() {
 
+
                 @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image img = reader.acquireLatestImage();
-                    try {
-                        if (img == null) {
+                public void onImageAvailable(final ImageReader reader) {
+                    try (Image latestImage = reader.acquireLatestImage()) {
+                        if (latestImage == null) {
                             return;
                         }
-                        byte[] yData = getByteArray(img, 0);
-
-                        int width = img.getWidth();
-                        int height = img.getHeight();
+                        int width = latestImage.getWidth();
+                        int height = latestImage.getHeight();
                         net.sourceforge.zbar.Image image = new net.sourceforge.zbar.Image(width, height, "Y800");
-                        image.setData(yData);
+                        image.setData(getByteArray(latestImage, 0));
                         int result = imageScanner.scanImage(image);
                         Canvas canvas = mOverlayView.lockCanvas();
                         try {
                             if (result != 0) {
                                 canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
                                 SymbolSet results = imageScanner.getResults();
-                                onQRCodeRead(results, canvas, new Rect(0, 0, img.getWidth(), img.getHeight()));
+                                onQRCodeRead(results, canvas, new Rect(0, 0, latestImage.getWidth(), latestImage.getHeight()));
                                 count = 0;
                             } else {
                                 if (count > MISSED_FRAMES_LIMIT) {
@@ -235,12 +230,12 @@ public class FragmentDecoder extends Fragment
                         /* Ignored */
                     } catch (Exception ex) {
                         ex.printStackTrace();
-                    } finally {
-                        if (img != null) {
-                            img.close();
-                        }
 
                     }
+                }
+
+                private void processReader(Image latestImage) {
+
                 }
 
             };
@@ -274,7 +269,10 @@ public class FragmentDecoder extends Fragment
     private String hostname;
     private String username;
     private String password;
-    private Shader composeShaderFinal;
+    private int backgroundColorTopLeft;
+    private Paint rectanglePaint;
+    private Paint foreground;
+    private final Matrix transform = new Matrix();
 
 
     /**
@@ -380,22 +378,34 @@ public class FragmentDecoder extends Fragment
                              Bundle savedInstanceState) {
 
         View rootView = inflater.inflate(R.layout.fragment_decoder, container, false);
+        foreground = new Paint();
+        foreground.setColor(Color.BLACK);
+
+        rectanglePaint = new Paint();
+        rectanglePaint.setStyle(Paint.Style.FILL_AND_STROKE);
+        // rectanglePaint.setColor(Color.TRANSPARENT);
+
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
         hostname = preferences.getString(HOSTNAME_KEY, "");
         username = preferences.getString(USERNAME_KEY, "");
         password = preferences.getString(PASSWORD_KEY, "");
 
         imageScanner = new ImageScanner();
-        imageScanner.setConfig(0, Config.X_DENSITY, 3);
-        imageScanner.setConfig(0, Config.Y_DENSITY, 3);
-        imageScanner.setConfig(0, Config.ENABLE, 0); //Disable all the Symbols
+        imageScanner.setConfig(Symbol.NONE, Config.ENABLE, 0); //Disable all the Symbols
         imageScanner.setConfig(Symbol.QRCODE, Config.ENABLE, 1);
+        imageScanner.setConfig(0, Config.Y_DENSITY, 3);
+        imageScanner.setConfig(0, Config.X_DENSITY, 3);
+        imageScanner.setConfig(0, Config.EMIT_CHECK, 0);
+        imageScanner.setConfig(0, Config.ASCII, 1);
+        imageScanner.setConfig(0, Config.ADD_CHECK, 0);
+        imageScanner.setConfig(0, Config.UNCERTAINTY, 1);
 
         mTextureView = new AutoFitTextureView(getActivity());
         mOverlayView = new AutoFitTextureView(getActivity());
         mOverlayView.setOnTouchListener(new View.OnTouchListener() {
 
             boolean activeScan = true;
+
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 activeScan = !activeScan;
@@ -444,7 +454,7 @@ public class FragmentDecoder extends Fragment
 
         //holder.setFormat(PixelFormat.TRANSPARENT);
 
-        layout = (FrameLayout) rootView.findViewById(R.id.fragment_decoder_layout);
+        FrameLayout layout = (FrameLayout) rootView.findViewById(R.id.fragment_decoder_layout);
 
         ViewGroup.LayoutParams params1 = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         ViewGroup.LayoutParams params2 = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -452,13 +462,7 @@ public class FragmentDecoder extends Fragment
         mOverlayView.setLayoutParams(params2);
         layout.addView(mOverlayView);
         layout.addView(mTextureView);
-
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                startBackgroundThread();
-            }
-        }, 700);
+        startBackgroundThread();
         return rootView;
     }
 
@@ -515,14 +519,8 @@ public class FragmentDecoder extends Fragment
                 int h = (int) (w / ratio);
                 mImageReader = ImageReader.newInstance(w, h, sImageFormat, 2);
                 mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mBackgroundHandler);
-                // Danger, W.R.! Attempting to use too large a preview size could exceed the camera
-                // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
-                // garbage capture data.
 
-//                int orientation = getResources().getConfiguration().orientation;
-//                if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-//                    mTextureView.setAspectRatio(mPreviewSize.getWidth(), mPreviewSize.getHeight());
-//                } else {
+
                 mTextureView.setAspectRatio(MainActivity.screenParametersPoint.x,
                         MainActivity.screenParametersPoint.y - getStatusBarHeight()); //portrait only
                 mOverlayView.setAspectRatio(MainActivity.screenParametersPoint.x,
@@ -608,16 +606,14 @@ public class FragmentDecoder extends Fragment
      */
     private void stopBackgroundThread() {
         try {
-            mBackgroundThread.quitSafely();
-            mBackgroundThread.join();
+            if (mBackgroundThread != null) {
+                mBackgroundThread.quitSafely();
+                mBackgroundThread.join();
+            }
             mBackgroundThread = null;
             mBackgroundHandler = null;
         } catch (InterruptedException e) {
             e.printStackTrace();
-            mBackgroundThread = null;
-            mBackgroundHandler = null;
-        } catch (NullPointerException ex) {
-            ex.printStackTrace();
             mBackgroundThread = null;
             mBackgroundHandler = null;
         }
@@ -629,8 +625,6 @@ public class FragmentDecoder extends Fragment
     private void createCameraPreviewSession() {
         try {
             SurfaceTexture texture = mTextureView.getSurfaceTexture();
-            assert texture != null;
-
             // We configure the size of default buffer to be the size of camera preview we want.
             texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
             Log.e(TAG, "mPreviewSize.getWidth(): " + mPreviewSize.getWidth() + ", mPreviewSize.getHeight(): "
@@ -680,39 +674,16 @@ public class FragmentDecoder extends Fragment
     }
 
 
-    private void configureTransform(int viewWidth, int viewHeight) {
-
-       /* if (mTextureView == null || mPreviewSize == null) return;
-
-        int rotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
-        Matrix matrix = new Matrix();
-        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
-        RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
-        float centerX = viewRect.centerX();
-        float centerY = viewRect.centerY();
-        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
-            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
-            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
-            float scale = Math.max(
-                    (float) viewHeight / mPreviewSize.getHeight(),
-                    (float) viewWidth / mPreviewSize.getWidth());
-            matrix.postScale(scale, scale, centerX, centerY);
-            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
-        }
-        mTextureView.setTransform(matrix);*/
-    }
-
     public void onQRCodeRead(final SymbolSet symbolSet, Canvas canvas, Rect cropRect) throws ExecutionException, InterruptedException {
         Symbol result = symbolSet.iterator().next();
         String key = result.getData();
         AsyncTask<String, Void, IssueDetails> asyncTask = cache.get(key);
-
         if (asyncTask == null) {
             cache.clear();
             asyncTask = new JiraInformationDownload(hostname, username, password).execute(key);
             cache.put(key, asyncTask);
         }
-        Matrix transform = new Matrix();
+        transform.reset();
         transform.postRotate(90);
         transform.postTranslate(cropRect.height(), 0);
         float sx = mOverlayView.getWidth() / (float) cropRect.height();
@@ -722,7 +693,6 @@ public class FragmentDecoder extends Fragment
         PointF p1 = getPointF(result.getLocationPoint(0), transform);
         PointF p2 = getPointF(result.getLocationPoint(3), transform);
         PointF p3 = getPointF(result.getLocationPoint(2), transform);
-
         float basePointsDistance = calcDistance(p0, p3);
         Paint foreground = new Paint();
         foreground.setColor(Color.BLACK);
@@ -734,12 +704,8 @@ public class FragmentDecoder extends Fragment
         PointF q1 = new PointF(0, 0);
         PointF q2 = new PointF(basePointsDistance, 0);
         PointF q3 = new PointF(basePointsDistance, basePointsDistance);
-        canvas.save();
         Matrix matrix = MatrixTransform.getMatrix(new PointF[]{q0, q1, q2, q3}, new PointF[]{p0, p1, p2, p3});
-
-
         RectF rect = new RectF(-basePointsDistance * 0.1f, -basePointsDistance * 0.05f, basePointsDistance * 1.1f, basePointsDistance * 1.05f);
-
         float[] colorPickTopLeft = new float[]{rect.left, rect.top};
         float[] colorPickTopRight = new float[]{rect.right, rect.top};
 
@@ -753,27 +719,19 @@ public class FragmentDecoder extends Fragment
             int backgroundColorTopLeft = bitmap.getPixel((int) colorPickTopLeft[0], (int) colorPickTopLeft[1]);
             int backgroundColorTopRight = bitmap.getPixel((int) colorPickTopRight[0], (int) colorPickTopRight[1]);
             bitmap.recycle();
-
-            composeShaderFinal = new LinearGradient(rect.left, rect.centerY(), rect.right, rect.centerY(), backgroundColorTopLeft, backgroundColorTopRight, Shader.TileMode.CLAMP);
+            rectanglePaint.setColor(backgroundColorTopLeft);
+//            LinearGradient composeShaderFinal = new LinearGradient(rect.left, rect.centerY(), rect.right, rect.centerY(), backgroundColorTopLeft, backgroundColorTopRight, Shader.TileMode.CLAMP);
+//            rectanglePaint.setShader(composeShaderFinal);
         }
 
-
-        Paint paint = new Paint();
-        paint.setStyle(Paint.Style.FILL_AND_STROKE);
-//        paint.setColor(backgroundColorLeft);
-        paint.setShader(composeShaderFinal);
-
         canvas.setMatrix(matrix);
-
-
-        canvas.drawRect(rect, paint);
+        canvas.drawRect(rect, rectanglePaint);
         if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
             IssueDetails s = asyncTask.get();
             if (s == null) {
                 drawString(canvas, foreground, "N/A", (int) basePointsDistance, 0);
             } else {
                 drawString(canvas, foreground, "Status: " + s.getStatus(), (int) basePointsDistance, 0);
-
                 String assignee = s.getAssignee();
                 if (assignee != null) {
                     drawString(canvas, foreground, "Assignee: " + assignee, (int) basePointsDistance, 1);
@@ -786,15 +744,10 @@ public class FragmentDecoder extends Fragment
         } else {
             drawString(canvas, foreground, "loading " + key, (int) basePointsDistance, 0);
         }
-        canvas.restore();
     }
 
     private boolean areCoordinatesInBounds(float[] point, int width, int height) {
         return point[0] >= 0 && point[1] >= 0 && point[0] < width && point[1] < height;
-    }
-
-    private int withAlpha(int color, int alpha) {
-        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
     }
 
     private void drawString(Canvas canvas, Paint paint, String text, int basePointsDistance, int row) {

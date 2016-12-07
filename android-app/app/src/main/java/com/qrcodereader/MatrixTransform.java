@@ -11,7 +11,10 @@ import org.ejml.simple.SimpleMatrix;
 
 public class MatrixTransform {
 
+    private static Matrix matrix = new Matrix();
+
     public static Matrix getMatrix(PointF[] fromPts, PointF[] toPts) {
+        matrix.reset();
         SimpleMatrix e = new SimpleMatrix(new double[][]{
                 {fromPts[0].x, fromPts[0].y, 1, 0, 0, 0, -fromPts[0].x * toPts[0].x, -fromPts[0].y * toPts[0].x},
                 {0, 0, 0, fromPts[0].x, fromPts[0].y, 1, -fromPts[0].x * toPts[0].y, -fromPts[0].y * toPts[0].y},
@@ -27,18 +30,10 @@ public class MatrixTransform {
         SimpleMatrix e_invert = e.invert();
         SimpleMatrix vector = new SimpleMatrix(new double[][]{{toPts[0].x, toPts[0].y, toPts[1].x, toPts[1].y, toPts[2].x, toPts[2].y, toPts[3].x, toPts[3].y}});
         SimpleMatrix r = e_invert.mult(vector.transpose());
-        Matrix matrix = new Matrix();
         float[] doubles = {(float) r.get(0), (float) r.get(1), (float) r.get(2),
                 (float) r.get(3), (float) r.get(4), (float) r.get(5),
                 (float) r.get(6), (float) r.get(7), 1};
-
-      /*  float[] doubles = {(float) r.get(0), (float) r.get(1), 0,(float) r.get(2),
-                (float) r.get(3), (float) r.get(4), 0,(float) r.get(5),
-                0,0,1,0
-                (float) r.get(6), (float) r.get(7),0, 1};*/
-
         matrix.setValues(doubles);
-
         return matrix;
     }
 

@@ -9,6 +9,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" />
 
     <application
+        android:hardwareAccelerated="true"
         android:allowBackup="true"
         android:icon="@mipmap/jirar_launcher"
         android:label="@string/app_name"
@@ -24,10 +25,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".ResultActivity"
-            android:label="@string/title_activity_result"
-            android:screenOrientation="portrait"></activity>
         <activity
             android:name="com.commons.SettingsActivity"
             android:label="@string/title_activity_settings"

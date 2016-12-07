@@ -13,11 +13,14 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -190,7 +193,6 @@ public class FragmentDecoder extends Fragment
 
     };
     private int count;
-    private int backgroundColor;
     private long lastRefresh;
 
     private Map<String, AsyncTask<String, Void, IssueDetails>> cache = new HashMap<>();
@@ -273,6 +275,7 @@ public class FragmentDecoder extends Fragment
     private String hostname;
     private String username;
     private String password;
+    private Shader composeShaderFinal;
 
 
     /**
@@ -690,7 +693,7 @@ public class FragmentDecoder extends Fragment
         Matrix transform = new Matrix();
         transform.postRotate(90);
         transform.postTranslate(cropRect.height(), 0);
-        float sx = mOverlayView.getRatioWidth() / (float) cropRect.height();
+        float sx = mOverlayView.getWidth() / (float) cropRect.height();
         float sy = mOverlayView.getHeight() / (float) cropRect.width();
         transform.postScale(sx, sy);
         PointF p0 = getPointF(result.getLocationPoint(1), transform);
@@ -711,22 +714,37 @@ public class FragmentDecoder extends Fragment
         PointF q3 = new PointF(basePointsDistance, basePointsDistance);
         canvas.save();
         Matrix matrix = MatrixTransform.getMatrix(new PointF[]{q0, q1, q2, q3}, new PointF[]{p0, p1, p2, p3});
-        float[] colorPick = new float[]{-basePointsDistance / 2, basePointsDistance / 2};
-        matrix.mapPoints(colorPick);
 
-        if (SystemClock.currentThreadTimeMillis() - lastRefresh > 500) {
+
+        RectF rect = new RectF(-basePointsDistance * 0.1f, -basePointsDistance * 0.05f, basePointsDistance * 1.1f, basePointsDistance * 1.05f);
+
+        float[] colorPickTopLeft = new float[]{rect.left, rect.top};
+        float[] colorPickTopRight = new float[]{rect.right, rect.top};
+
+        matrix.mapPoints(colorPickTopLeft);
+        matrix.mapPoints(colorPickTopRight);
+        int mTextureViewWidth = mTextureView.getWidth();
+        int mTextureViewHeight = mTextureView.getHeight();
+        if (SystemClock.currentThreadTimeMillis() - lastRefresh > 500 && areCoordinatesInBounds(colorPickTopLeft, mTextureViewWidth, mTextureViewHeight) && areCoordinatesInBounds(colorPickTopRight, mTextureViewWidth, mTextureViewHeight)) {
             lastRefresh = SystemClock.currentThreadTimeMillis();
             Bitmap bitmap = mTextureView.getBitmap();
-            backgroundColor = bitmap.getPixel((int) colorPick[0], (int) colorPick[1]);
+            int backgroundColorTopLeft = bitmap.getPixel((int) colorPickTopLeft[0], (int) colorPickTopLeft[1]);
+            int backgroundColorTopRight = bitmap.getPixel((int) colorPickTopRight[0], (int) colorPickTopRight[1]);
             bitmap.recycle();
+
+            composeShaderFinal = new LinearGradient(rect.left, rect.centerY(), rect.right, rect.centerY(), backgroundColorTopLeft, backgroundColorTopRight, Shader.TileMode.CLAMP);
         }
+
 
         Paint paint = new Paint();
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
-        paint.setColor(backgroundColor);
+//        paint.setColor(backgroundColorLeft);
+        paint.setShader(composeShaderFinal);
 
         canvas.setMatrix(matrix);
-        canvas.drawRect(-basePointsDistance, 0, basePointsDistance * 2, basePointsDistance, paint);
+
+
+        canvas.drawRect(rect, paint);
         if (asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
             IssueDetails s = asyncTask.get();
             if (s == null) {
@@ -747,6 +765,14 @@ public class FragmentDecoder extends Fragment
             drawString(canvas, foreground, "loading " + key, (int) basePointsDistance, 0);
         }
         canvas.restore();
+    }
+
+    private boolean areCoordinatesInBounds(float[] point, int width, int height) {
+        return point[0] >= 0 && point[1] >= 0 && point[0] < width && point[1] < height;
+    }
+
+    private int withAlpha(int color, int alpha) {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
     }
 
     private void drawString(Canvas canvas, Paint paint, String text, int basePointsDistance, int row) {

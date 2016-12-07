@@ -179,7 +179,7 @@ public class FragmentDecoder extends Fragment
     private int backgroundColor;
     private boolean backgroundColorNeedRefresh = true;
     private long lastRefresh;
-    private JiraInformationDownload jiraInformationDownload;
+
     private Map<String, AsyncTask<String, Void, IssueDetails>> cache = new HashMap<>();
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener =
             new ImageReader.OnImageAvailableListener() {
@@ -257,6 +257,9 @@ public class FragmentDecoder extends Fragment
                 }
 
             };
+    private String hostname;
+    private String username;
+    private String password;
 
     private static Bitmap imageToBitmap(Image img) {
         Bitmap bitmap = null;
@@ -398,11 +401,10 @@ public class FragmentDecoder extends Fragment
 
         View rootView = inflater.inflate(R.layout.fragment_decoder, container, false);
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
-        String hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
-        String username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
-        String password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
+        hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
+        username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
+        password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
 
-        jiraInformationDownload = new JiraInformationDownload(hostname,username, password);
         imageScanner = new ImageScanner();
         imageScanner.setConfig(0, Config.X_DENSITY, 3);
         imageScanner.setConfig(0, Config.Y_DENSITY, 3);
@@ -697,7 +699,7 @@ public class FragmentDecoder extends Fragment
         AsyncTask<String, Void, IssueDetails> asyncTask = cache.get(key);
         if (asyncTask == null) {
             cache.clear();
-            asyncTask = jiraInformationDownload.execute(key);
+            asyncTask = new JiraInformationDownload(hostname, username, password).execute(key);
             cache.put(key, asyncTask);
         }
         Matrix transform = new Matrix();

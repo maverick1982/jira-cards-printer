@@ -177,7 +177,6 @@ public class FragmentDecoder extends Fragment
     };
     private int count;
     private int backgroundColor;
-    private boolean backgroundColorNeedRefresh = true;
     private long lastRefresh;
 
     private Map<String, AsyncTask<String, Void, IssueDetails>> cache = new HashMap<>();
@@ -261,48 +260,6 @@ public class FragmentDecoder extends Fragment
     private String username;
     private String password;
 
-    private static Bitmap imageToBitmap(Image img) {
-        Bitmap bitmap = null;
-        try {
-            if (img != null) {
-                Image.Plane[] planes = img.getPlanes();
-                if (planes[0].getBuffer() == null) {
-                    return null;
-                }
-                int width = img.getWidth();
-                int height = img.getHeight();
-                int pixelStride = planes[0].getPixelStride();
-                int rowStride = planes[0].getRowStride();
-                int rowPadding = rowStride - pixelStride * width;
-
-                int offset = 0;
-                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-                ByteBuffer buffer = planes[0].getBuffer();
-                for (int i = 0; i < height; ++i) {
-                    for (int j = 0; j < width; ++j) {
-                        int pixel = 0;
-                        pixel |= (buffer.get(offset) & 0xff) << 16;     // R
-                        pixel |= (buffer.get(offset + 1) & 0xff) << 8;  // G
-                        pixel |= (buffer.get(offset + 2) & 0xff);       // B
-                        pixel |= (buffer.get(offset + 3) & 0xff) << 24; // A
-                        bitmap.setPixel(j, i, pixel);
-                        offset += pixelStride;
-                    }
-                    offset += rowPadding;
-                }
-                img.close();
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (null != img) {
-                img.close();
-            }
-
-        }
-        return bitmap;
-    }
 
     /**
      * Given {@code choices} of {@code Size}s supported by a camera, chooses the smallest one whose
@@ -713,18 +670,11 @@ public class FragmentDecoder extends Fragment
         PointF p2 = getPointF(result.getLocationPoint(3), transform);
         PointF p3 = getPointF(result.getLocationPoint(2), transform);
 
-        if (backgroundColorNeedRefresh) {
-            backgroundColorNeedRefresh = false;
+        if (SystemClock.currentThreadTimeMillis() - lastRefresh > 500) {
             lastRefresh = SystemClock.currentThreadTimeMillis();
             Bitmap bitmap = mTextureView.getBitmap();
             backgroundColor = bitmap.getPixel((int) p0.x - 100, (int) p0.y - 60);
             bitmap.recycle();
-        } else {
-            long currentThreadTimeMillis = SystemClock.currentThreadTimeMillis();
-            if (currentThreadTimeMillis - lastRefresh > 500) {
-                backgroundColorNeedRefresh = true;
-            }
-
         }
 
         float basePointsDistance = calcDistance(p0, p3);
@@ -743,19 +693,6 @@ public class FragmentDecoder extends Fragment
         float[] colorPick = new float[]{-basePointsDistance / 2, basePointsDistance / 2};
         matrix.mapPoints(colorPick);
 
-        if (backgroundColorNeedRefresh) {
-            backgroundColorNeedRefresh = false;
-            lastRefresh = SystemClock.currentThreadTimeMillis();
-            Bitmap bitmap = mTextureView.getBitmap();
-            backgroundColor = bitmap.getPixel((int) colorPick[0], (int) colorPick[1]);
-            bitmap.recycle();
-        } else {
-            long currentThreadTimeMillis = SystemClock.currentThreadTimeMillis();
-            if (currentThreadTimeMillis - lastRefresh > 500) {
-                backgroundColorNeedRefresh = true;
-            }
-
-        }
 
         Paint paint = new Paint();
         paint.setStyle(Paint.Style.FILL_AND_STROKE);

@@ -470,15 +470,11 @@ public class FragmentDecoder extends Fragment
         // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
         // a camera and start preview from here (otherwise, we wait until the surface is ready in
         // the SurfaceTextureListener).
-
         if (mTextureView.isAvailable()) {
             openCamera(mTextureView.getWidth(), mTextureView.getHeight());
         } else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
-        prefs.registerOnSharedPreferenceChangeListener(listener);
     }
 
     @Override
@@ -487,9 +483,6 @@ public class FragmentDecoder extends Fragment
         closeCamera();
         stopBackgroundThread();
         super.onPause();
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
-        prefs.unregisterOnSharedPreferenceChangeListener(listener);
     }
 
     /**

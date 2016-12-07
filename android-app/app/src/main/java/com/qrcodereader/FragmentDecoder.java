@@ -670,13 +670,6 @@ public class FragmentDecoder extends Fragment
         PointF p2 = getPointF(result.getLocationPoint(3), transform);
         PointF p3 = getPointF(result.getLocationPoint(2), transform);
 
-        if (SystemClock.currentThreadTimeMillis() - lastRefresh > 500) {
-            lastRefresh = SystemClock.currentThreadTimeMillis();
-            Bitmap bitmap = mTextureView.getBitmap();
-            backgroundColor = bitmap.getPixel((int) p0.x - 100, (int) p0.y - 60);
-            bitmap.recycle();
-        }
-
         float basePointsDistance = calcDistance(p0, p3);
         Paint foreground = new Paint();
         foreground.setColor(Color.BLACK);
@@ -693,6 +686,12 @@ public class FragmentDecoder extends Fragment
         float[] colorPick = new float[]{-basePointsDistance / 2, basePointsDistance / 2};
         matrix.mapPoints(colorPick);
 
+        if (SystemClock.currentThreadTimeMillis() - lastRefresh > 500) {
+            lastRefresh = SystemClock.currentThreadTimeMillis();
+            Bitmap bitmap = mTextureView.getBitmap();
+            backgroundColor = bitmap.getPixel((int) colorPick[0], (int) colorPick[1]);
+            bitmap.recycle();
+        }
 
         Paint paint = new Paint();
         paint.setStyle(Paint.Style.FILL_AND_STROKE);

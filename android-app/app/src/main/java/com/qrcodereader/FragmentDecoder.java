@@ -164,7 +164,6 @@ public class FragmentDecoder extends Fragment
     private Handler mBackgroundHandler;
     private ImageReader mImageReader;
     private CaptureRequest.Builder mPreviewRequestBuilder;
-    private CaptureRequest mPreviewRequest;
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
     private final CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
 
@@ -395,12 +394,43 @@ public class FragmentDecoder extends Fragment
         mTextureView = new AutoFitTextureView(getActivity());
         mOverlayView = new AutoFitTextureView(getActivity());
         mOverlayView.setOnTouchListener(new View.OnTouchListener() {
+
+            boolean activeScan = true;
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_AUTO);
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+                activeScan = !activeScan;
+                if (activeScan) {
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_STATE_ACTIVE_SCAN);
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+                } else {
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_AUTO);
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+                }
                 try {
                     mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                }
+                return false;
+            }
+        });
+        mOverlayView.setOnLongClickListener(new View.OnLongClickListener() {
+            boolean flashOn = false;
+
+            @Override
+            public boolean onLongClick(View v) {
+
+                flashOn = !flashOn;
+                try {
+
+                    if (flashOn) {
+                        mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_TORCH);
+                        mCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(), null, null);
+                    } else {
+                        mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_OFF);
+                        mCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(), null, null);
+
+                    }
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 }
@@ -635,11 +665,10 @@ public class FragmentDecoder extends Fragment
                                 // Auto focus should be continuous for camera preview.
                                 mPreviewRequestBuilder.set(CONTROL_AF_MODE, CONTROL_AF_STATE_ACTIVE_SCAN);
                                 // Flash is automatically enabled when necessary.
-//                                mPreviewRequestBuilder.set(CONTROL_AE_MODE, CONTROL_AE_MODE_ON_AUTO_FLASH); // no need for flash now
+                                // mPreviewRequestBuilder.set(CONTROL_AE_MODE, CONTROL_AE_MODE_ON_AUTO_FLASH); // no need for flash now
 
                                 // Finally, we start displaying the camera preview.
-                                mPreviewRequest = mPreviewRequestBuilder.build();
-                                mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
+                                mCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(), mCaptureCallback,
                                         mBackgroundHandler);
                             } catch (CameraAccessException e) {
                                 e.printStackTrace();

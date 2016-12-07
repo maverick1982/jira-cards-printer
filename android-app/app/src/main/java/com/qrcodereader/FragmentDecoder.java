@@ -108,12 +108,23 @@ import static android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE;
 
 public class FragmentDecoder extends Fragment
         implements FragmentCompat.OnRequestPermissionsResultCallback {
-    public static final int PREVIEW_SCALE_FACTOR = 4;
     public static final int MISSED_FRAMES_LIMIT = 20;
     private static final int sImageFormat = ImageFormat.YUV_420_888;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private static final String FRAGMENT_DIALOG = "dialog";
 
+    SharedPreferences.OnSharedPreferenceChangeListener listener = new
+            SharedPreferences.OnSharedPreferenceChangeListener() {
+                @Override
+                public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
+                                                      String key) {
+                    SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
+                    hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
+                    username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
+                    password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
+                    cache.clear();
+                }
+            };
     /**
      * Tag for the {@link Log}.
      */
@@ -353,6 +364,13 @@ public class FragmentDecoder extends Fragment
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
+        prefs.registerOnSharedPreferenceChangeListener(listener);
     }
 
     @Override
@@ -657,6 +675,7 @@ public class FragmentDecoder extends Fragment
         Symbol result = symbolSet.iterator().next();
         String key = result.getData();
         AsyncTask<String, Void, IssueDetails> asyncTask = cache.get(key);
+
         if (asyncTask == null) {
             cache.clear();
             asyncTask = new JiraInformationDownload(hostname, username, password).execute(key);

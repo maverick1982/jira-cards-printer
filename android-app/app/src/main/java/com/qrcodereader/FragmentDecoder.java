@@ -51,7 +51,6 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-import com.commons.SettingsActivity;
 import com.jira.IssueDetails;
 import com.jira.JiraInformationDownload;
 
@@ -110,15 +109,19 @@ public class FragmentDecoder extends Fragment
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private static final String FRAGMENT_DIALOG = "dialog";
 
+    private static final String HOSTNAME_KEY = "hostname_key";
+    private static final String USERNAME_KEY = "username_key";
+    private static final String PASSWORD_KEY = "password_key";
+
     SharedPreferences.OnSharedPreferenceChangeListener listener = new
             SharedPreferences.OnSharedPreferenceChangeListener() {
                 @Override
                 public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
                                                       String key) {
                     SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
-                    hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
-                    username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
-                    password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
+                    hostname = preferences.getString(HOSTNAME_KEY, "");
+                    username = preferences.getString(USERNAME_KEY, "");
+                    password = preferences.getString(PASSWORD_KEY, "");
                     cache.clear();
                 }
             };
@@ -376,9 +379,9 @@ public class FragmentDecoder extends Fragment
 
         View rootView = inflater.inflate(R.layout.fragment_decoder, container, false);
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
-        hostname = preferences.getString(SettingsActivity.HOSTNAME_KEY, "");
-        username = preferences.getString(SettingsActivity.USERNAME_KEY, "");
-        password = preferences.getString(SettingsActivity.PASSWORD_KEY, "");
+        hostname = preferences.getString(HOSTNAME_KEY, "");
+        username = preferences.getString(USERNAME_KEY, "");
+        password = preferences.getString(PASSWORD_KEY, "");
 
         imageScanner = new ImageScanner();
         imageScanner.setConfig(0, Config.X_DENSITY, 3);
@@ -440,6 +443,9 @@ public class FragmentDecoder extends Fragment
         } else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
+        prefs.registerOnSharedPreferenceChangeListener(listener);
     }
 
     @Override
@@ -448,6 +454,9 @@ public class FragmentDecoder extends Fragment
         closeCamera();
         stopBackgroundThread();
         super.onPause();
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity().getBaseContext());
+        prefs.unregisterOnSharedPreferenceChangeListener(listener);
     }
 
     /**

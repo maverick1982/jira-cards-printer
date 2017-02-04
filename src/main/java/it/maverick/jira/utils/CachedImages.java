@@ -23,11 +23,13 @@ import java.util.HashMap;
  */
 public class CachedImages {
 
-    private final HashMap<String, Image> imagesCache = new HashMap<String, Image>();
+    private final HashMap<String, Image> imagesCache = new HashMap<>();
 
     public Image getCachedImage(String stringURL) {
-        Image image = imagesCache.get(stringURL);
-        if (image == null) {
+        Image image = null;
+        if(imagesCache.containsKey(stringURL)) {
+            image = imagesCache.get(stringURL);
+        } else  {
             try {
                 DOMImplementation impl = SVGDOMImplementation.getDOMImplementation();
                 MyTransCoder transcoder = new MyTransCoder();
@@ -43,14 +45,12 @@ public class CachedImages {
                 TranscoderInput ti = new TranscoderInput(new URL(stringURL).toURI().toString());
                 transcoder.transcode(ti, null);
                 image = transcoder.getImage();
-                imagesCache.put(stringURL, image);
             } catch (TranscoderException e) {
-                e.printStackTrace();
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
+                System.out.println("Unsupported image format for image: " + stringURL);
+            } catch (URISyntaxException | MalformedURLException e) {
+                System.out.println("Invalid image URI: " + stringURL);
             }
+            imagesCache.put(stringURL, image);
         }
         return image;
     }
@@ -63,14 +63,14 @@ public class CachedImages {
         private BufferedImage image = null;
 
         public BufferedImage createImage(int w, int h) {
-            image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE);
             return image;
         }
 
         public void writeImage(BufferedImage img, TranscoderOutput out) {
         }
 
-        public BufferedImage getImage() {
+        BufferedImage getImage() {
             return image;
         }
     }
